@@ -43,8 +43,8 @@ date_initiale = "0119"
 tolerance = 0.0001
 rayon_elemination = 0.1
 
-skip = 6
-skip_vect_vent = 6
+skip = 10
+skip_vect_vent = 10
 
 tolerance_arrivée = 0.1
 

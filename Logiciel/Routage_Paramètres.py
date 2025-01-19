@@ -1,0 +1,121 @@
+import re
+import sys
+import os
+from datetime import datetime, timedelta
+
+"PARAMETRES DE NAVIGATION"
+
+# "TRAVERSEE ATLANTIQUE"
+# position_finale, position_initiale = ((-1.8390148914037843, 46.468986830218), (-15.44764920293199, 44.793006205066064)) 
+# bg = (42, -16)
+# hd = (49, 0)
+
+"GOLF DE GASCOGNE"
+position_initiale, position_finale = ((48.85725806451613, -3.9247311827956985), (47.520698924731185, -3.0139784946236556))
+bg = (46, -7)
+hd = (49, -1.5)
+
+"MEDITERRANNEE"
+# position_initiale, position_finale = ((4.449957059919272, 43.03482228137273), (7.750689156750921, 39.763423641448114))
+# bg = (38.07650729398917, -0.8543382853154504)
+# hd = (43.585020563003646, 9.390756905813463)
+
+"BAIE DE QUIBERON"
+# position_initiale, position_finale = ((4.449957059919272, 43.03482228137273), (7.750689156750921, 39.763423641448114))
+# bg = (47.464918641190074, -3.1748298590739505)
+# hd = (47.58439367338987, -2.8881081611490313)
+
+# "Atlantique centrale"
+# position_initiale, position_finale = ((12.75, -33.1), (24.33, -32.80))
+# bg = (10, -43)
+# hd = (31, -11)
+
+cadre_navigation = (bg, hd)
+loc_nav = [bg[1], hd[1], bg[0], hd[0]]
+
+
+pas_temporel = 1
+pas_angle = 10
+
+heure_initiale = 11 
+date_initiale = "0119" 
+
+tolerance = 0.0001
+rayon_elemination = 0.1
+
+skip = 4
+skip_vect_vent = 4
+
+tolerance_arrivée = 0.1
+
+land_contact = False
+enregistrement = False
+live = False
+print_données = True
+data_route = True
+
+
+drapeau = True
+
+# FICHIER METEO, TERRE
+land = r'Logiciel\Carte_frontières_terrestre\ne_10m_land.shp'
+new = False
+vent = r"C:\Users\arthu\OneDrive\Arthur\Programmation\Projet_routage\TIPE_Arthur_Lhoste\Logiciel\Données_vent\METEOCONSULT00Z_VENT_0119_Gascogne.grb"
+
+excel_wind = r'Logiciel\Données_vent\Vent.xlsx'
+
+type = 'grib'
+
+# Lieu enregistrement image à enregistrer
+output_dir = r'C:\Users\arthu\OneDrive\Arthur\Programmation\TIPE_Arthur_Lhoste\images_png'
+
+# PARAMETRES POUR LA POLAIRE
+delimeter = r';'  # r'\s+' si Sunfastpol sinon r';'  pour Imoca 
+polaire = r'Logiciel\Imoca2.pol'
+
+
+"PARAMETRES VISUELS"
+
+wind_speed_bins = [0, 2, 6, 10, 14, 17, 21, 25, 29, 33, 37, 41, 44, 47, 52, 56, 60]
+colors_windy = [
+    "#6271B7", "#39619F", "#4A94A9", "#4D8D7B", "#53A553", "#359F35",
+    "#A79D51", "#9F7F3A", "#A16C5C", "#813A4E", "#AF5088", "#754A93",
+    "#6D61A3", "#44698D", "#5C9098", "#5C9098"
+]
+colors_météo_marine = [
+    "#A7FF91", "#A7FF91", "#75FF52", "#C1FF24", "#FBFD00", "#FEAB00",
+    "#FF7100", "#FD5400", "#F80800", "#813A4E", "#AF5088", "#754A93",
+    "#6D61A3", "#44698D", "#5C9098", "#5C9098"
+]
+
+def disable_prints():
+    sys.stdout = open(os.devnull, 'w')
+
+def enable_prints():
+    sys.stdout = sys.__stdout__
+    
+# Extraction de l'heure et de la date du GRIB
+match = re.search(r'(\d+)Z.*?_(\d{4})_', vent)
+
+if match:
+    heure_grib = int(match.group(1))  # Nombre avant "Z"
+    date_grib = match.group(2)  # 4 chiffres correspondant à la date
+    # print(f"L'heure initiale est : {heure_grib}")
+    # print(f"La date initiale du GRIB est : {date_grib}")
+else:
+    print("Impossible d'extraire l'heure et/ou la date.")
+    exit()
+
+try:
+    # Date et heure initiales du GRIB
+    date_heure_grib = datetime.strptime(date_grib, "%m%d") + timedelta(hours=heure_grib)
+
+    # Date et heure données en entrée
+    date_heure_initiale = datetime.strptime(date_initiale, "%m%d") + timedelta(hours=heure_initiale)
+
+    # Calcul de la différence en heures
+    heure_début = int((date_heure_initiale - date_heure_grib).total_seconds() / 3600)
+
+    # print(f"L'heure de début (différence en heures) est : {heure_début}")
+except ValueError as e:
+    print(f"Erreur dans le format des dates ou des heures : {e}")

@@ -71,7 +71,7 @@ output_dir = r'C:\Users\arthu\OneDrive\Arthur\Programmation\TIPE_Arthur_Lhoste\i
 
 # PARAMETRES POUR LA POLAIRE
 delimeter = r';'  # r'\s+' si Sunfastpol sinon r';'  pour Imoca 
-polaire = r'Logiciel\Imoca2.pol'
+polaire = r'Imoca2.pol'
 
 
 "PARAMETRES VISUELS"

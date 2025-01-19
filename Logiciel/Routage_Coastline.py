@@ -11,7 +11,7 @@ import Routage_Paramètres as p
 # Charger les contours géographiques de la Bretagne
 def load_brittany_geometry():
     url = "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip"
-    world = gpd.read_file(url)
+    world = gpd.read_file(url, engine="fiona")
 
     # Filtrer pour la France
     france = world[world['NAME'] == 'France']
@@ -66,7 +66,7 @@ def load_mask_from_geotiff(filename):
 
 lat_min, lat_max = p.bg[0], p.hd[0]
 lon_min, lon_max = p.bg[1], p.hd[1]
-resolution = 100 
+resolution = 10 
 
 # mask, transform = create_land_sea_mask(lat_min, lat_max, lon_min, lon_max, resolution)
 # save_mask_to_geotiff(mask, transform, "brittany_land_sea_mask.tif")

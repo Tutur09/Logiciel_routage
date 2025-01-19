@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 # hd = (49, 0)
 
 "GOLF DE GASCOGNE"
-position_initiale, position_finale = ((48.85725806451613, -3.9247311827956985), (47.520698924731185, -3.0139784946236556))
+position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
 bg = (46, -7)
 hd = (49, -1.5)
 
@@ -48,7 +48,7 @@ skip_vect_vent = 4
 
 tolerance_arrivée = 0.1
 
-land_contact = False
+land_contact = True
 enregistrement = False
 live = False
 print_données = True
@@ -60,7 +60,7 @@ drapeau = True
 # FICHIER METEO, TERRE
 land = r'Logiciel\Carte_frontières_terrestre\ne_10m_land.shp'
 new = False
-vent = r"C:\Users\arthu\OneDrive\Arthur\Programmation\Projet_routage\TIPE_Arthur_Lhoste\Logiciel\Données_vent\METEOCONSULT00Z_VENT_0119_Gascogne.grb"
+vent = r"Logiciel\Données_vent\METEOCONSULT12Z_VENT_0119_Gascogne.grb"
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'
 

@@ -43,8 +43,8 @@ date_initiale = "0119"
 tolerance = 0.0001
 rayon_elemination = 0.1
 
-skip = 4
-skip_vect_vent = 4
+skip = 6
+skip_vect_vent = 6
 
 tolerance_arrivée = 0.1
 
@@ -59,7 +59,7 @@ drapeau = True
 
 # FICHIER METEO, TERRE
 land = r'Logiciel\Carte_frontières_terrestre\ne_10m_land.shp'
-new = True
+new = False
 vent = r"METEOCONSULT12Z_VENT_0119_Gascogne.grb"
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'

@@ -3,12 +3,8 @@ pandas
 matplotlib
 shapely
 cartopy
-concurrent
 geopandas
 rasterio
 scipy
-collections
-datetime
 xarray
 geopy
-pickle

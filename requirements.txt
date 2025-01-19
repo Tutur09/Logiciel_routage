@@ -12,4 +12,6 @@ geopy
 alphashape
 cfgrib
 eccodes
+folium
+streamlit-folium
 

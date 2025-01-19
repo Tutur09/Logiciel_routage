@@ -59,8 +59,8 @@ drapeau = True
 
 # FICHIER METEO, TERRE
 land = r'Logiciel\Carte_frontières_terrestre\ne_10m_land.shp'
-new = False
-vent = r"Logiciel\Données_vent\METEOCONSULT12Z_VENT_0119_Gascogne.grb"
+new = True
+vent = r"METEOCONSULT12Z_VENT_0119_Gascogne.grb"
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'
 

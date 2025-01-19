@@ -1,102 +1,54 @@
 Heure: -1
-Position : (48.85725806451613, -3.9306451612903226)
-Prediction de vent a la position 205.65187072753906 degre pour 13.905975341796875 knd
-Cap : 270.0
-Vitesse : 11.5
+Position : (np.float64(47.44381720430108), np.float64(-5.509677419354839))
+Prediction de vent a la position 206.9792022705078 degre pour 14.0986967086792 knd
+Cap : 100.0
+Vitesse : 15.28
 -----------------------------------------------------------
 Heure: 0
-Position : (48.856891725261754, -4.221721040408635)
-Prediction de vent a la position 158.040283203125 degre pour 15.95626163482666 knd
-Cap : 240.0
-Vitesse : 13.9
+Position : (47.399038924888465, -5.139497512464046)
+Prediction de vent a la position 168.04495239257812 degre pour 14.416783332824707 knd
+Cap : 110.0
+Vitesse : 11.52
 -----------------------------------------------------------
 Heure: 1
-Position : (48.74069608468496, -4.525849950404093)
-Prediction de vent a la position 158.0158233642578 degre pour 13.358683586120605 knd
-Cap : 210.0
-Vitesse : 11.06
+Position : (47.33312355327104, -4.87352987702917)
+Prediction de vent a la position 165.95852661132812 degre pour 14.409448623657227 knd
+Cap : 90.0
+Vitesse : 13.39
 -----------------------------------------------------------
 Heure: 2
-Position : (48.58107881107065, -4.665076236160946)
-Prediction de vent a la position 149.038818359375 degre pour 11.564911842346191 knd
-Cap : 220.0
-Vitesse : 11.7
+Position : (47.33265258817183, -4.544447013060066)
+Prediction de vent a la position 165.5097198486328 degre pour 15.682584762573242 knd
+Cap : 120.0
+Vitesse : 11.16
 -----------------------------------------------------------
 Heure: 3
-Position : (48.43166669782655, -4.853832083525743)
-Prediction de vent a la position 135.98731994628906 degre pour 13.62950325012207 knd
-Cap : 190.0
-Vitesse : 10.88
+Position : (47.23945731244672, -4.307318506004048)
+Prediction de vent a la position 162.0453338623047 degre pour 18.51704216003418 knd
+Cap : 110.0
+Vitesse : 11.77
 -----------------------------------------------------------
 Heure: 4
-Position : (48.253202815424274, -4.901090043662128)
-Prediction de vent a la position 136.50784301757812 degre pour 15.430826187133789 knd
-Cap : 190.0
-Vitesse : 11.35
+Position : (47.172100570159195, -4.036380386488459)
+Prediction de vent a la position 146.9720001220703 degre pour 18.529489517211914 knd
+Cap : 110.0
+Vitesse : 9.77
 -----------------------------------------------------------
 Heure: 5
-Position : (48.06708681041626, -4.950195734618896)
-Prediction de vent a la position 149.1317596435547 degre pour 14.648743629455566 knd
-Cap : 110.0
-Vitesse : 10.26
+Position : (47.11621964078516, -3.811656467179332)
+Prediction de vent a la position 139.02906799316406 degre pour 17.994426727294922 knd
+Cap : 100.0
+Vitesse : 10.6
 -----------------------------------------------------------
 Heure: 6
-Position : (48.00840238012267, -4.710222328407023)
-Prediction de vent a la position 143.02796936035156 degre pour 18.528549194335938 knd
-Cap : 100.0
-Vitesse : 10.95
+Position : (47.08526350612672, -3.5561892181679204)
+Prediction de vent a la position 131.04168701171875 degre pour 16.462820053100586 knd
+Cap : 190.0
+Vitesse : 11.82
 -----------------------------------------------------------
 Heure: 7
-Position : (47.97643013627936, -4.44200742377132)
-Prediction de vent a la position 127.01313781738281 degre pour 11.828400611877441 knd
-Cap : 170.0
-Vitesse : 9.62
------------------------------------------------------------
-Heure: 8
-Position : (47.81865347217251, -4.400578105583058)
-Prediction de vent a la position 125.5929946899414 degre pour 15.659398078918457 knd
-Cap : 70.0
-Vitesse : 11.87
------------------------------------------------------------
-Heure: 9
-Position : (47.88595555847878, -4.1234767558381025)
-Prediction de vent a la position 106.9678726196289 degre pour 10.778008460998535 knd
-Cap : 140.0
-Vitesse : 7.57
------------------------------------------------------------
-Heure: 10
-Position : (47.78933765316455, -4.002887364404403)
-Prediction de vent a la position 100.02328491210938 degre pour 16.42634391784668 knd
-Cap : 160.0
-Vitesse : 11.74
------------------------------------------------------------
-Heure: 11
-Position : (47.60558070627542, -3.9037130004317304)
-Prediction de vent a la position 115.53624725341797 degre pour 16.446392059326172 knd
-Cap : 60.0
-Vitesse : 12.1
------------------------------------------------------------
-Heure: 12
-Position : (47.706048387542175, -3.6443699491469954)
-Prediction de vent a la position 92.50061798095703 degre pour 14.669325828552246 knd
-Cap : 130.0
-Vitesse : 9.38
------------------------------------------------------------
-Heure: 13
-Position : (47.60543469392683, -3.4667705460184965)
-Prediction de vent a la position 89.98855590820312 degre pour 13.890134811401367 knd
-Cap : 130.0
-Vitesse : 9.85
------------------------------------------------------------
-Heure: 14
-Position : (47.499840687510435, -3.2807668428848564)
-Prediction de vent a la position 88.041259765625 degre pour 14.414146423339844 knd
-Cap : 130.0
-Vitesse : 9.82
------------------------------------------------------------
-Heure: 15
-Position : (47.39456193181027, -3.0956875110907136)
-Prediction de vent a la position 88.02143096923828 degre pour 15.443191528320312 knd
-Cap : 130.0
-Vitesse : 9.91
+Position : (46.89143823140775, -3.606197258985422)
+Prediction de vent a la position 128.9866485595703 degre pour 16.469602584838867 knd
+Cap : 180.0
+Vitesse : 11.66
 -----------------------------------------------------------

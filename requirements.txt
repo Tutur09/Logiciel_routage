@@ -10,3 +10,5 @@ xarray
 geopy
 alphashape
 cfgrib
+eccodes
+

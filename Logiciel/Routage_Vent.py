@@ -2,22 +2,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-
 import pandas as pd
-
-from time import time
 import os
 import Routage_Paramètres as p
-from scipy.interpolate import griddata
-
 from cartopy import crs as ccrs, feature as cfeature
-
-from shapely.ops import nearest_points
-from geopy.distance import geodesic
-from shapely.geometry import LineString, Point
-
 import xarray as xr
 import pickle
+
+
+
 
 def excel_to_uv_components2(excel_file):
     # Lire le fichier Excel
@@ -385,11 +378,13 @@ def point_ini_fin(loc):
         print("Sélection incomplète.")
         return None
   
+
 #Chemin d'accès du fichier GRIB vent et courant (pas encore fait)
 file_path = p.vent
 
 if p.type == 'grib':
     ds = xr.open_dataset(file_path, engine='cfgrib')
+    
     if p.new:
         u10_values = [ds.u10.isel(step=int(step)).values for step in range(ds.dims['step'])]
         v10_values = [ds.v10.isel(step=int(step)).values for step in range(ds.dims['step'])]
@@ -415,7 +410,7 @@ else:
     print("Dimensions de v :", v_xl.shape)
 
 
-"CE QUI SUIT EST POUR LA FONCTION IS_ONLAND"
-
-if __name__ == "__main__":
-    plot_grib([0])
+if __name__ == '__main__':
+    ds = xr.open_dataset(file_path, engine='cfgrib')
+    print(ds)
+    # plot_grib([0])

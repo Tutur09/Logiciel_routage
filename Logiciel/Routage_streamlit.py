@@ -26,39 +26,53 @@ def afficher_parametres():
     """Gère la configuration des paramètres dans l'application."""
     st.title("Configuration des paramètres")
 
-    # Carte cliquable pour sélectionner les points de départ et d'arrivée
-    st.subheader("Points de navigation (sélection sur carte)")
-    m = folium.Map(location=[48.8566, 2.3522], zoom_start=5)  # Centré sur la France
+    # Carte avec marqueurs draggables pour départ et arrivée
+    st.subheader("Déplacez les marqueurs et validez les positions")
 
-    # Ajouter des marqueurs pour les positions initiale et finale par défaut
-    start_marker = folium.Marker(location=p.position_initiale, popup="Point de départ", draggable=True)
-    end_marker = folium.Marker(location=p.position_finale, popup="Point d'arrivée", draggable=True)
-    start_marker.add_to(m)
-    end_marker.add_to(m)
+    # Initialisation des positions si elles n'existent pas
+    if "position_initiale" not in st.session_state:
+        st.session_state.position_initiale = p.position_initiale
+    if "position_finale" not in st.session_state:
+        st.session_state.position_finale = p.position_finale
+
+    # Créez une carte centrée sur la France
+    m = folium.Map(location=[48.8566, 2.3522], zoom_start=6)
+
+    # Ajouter des marqueurs draggables pour départ et arrivée
+    folium.Marker(
+        location=st.session_state.position_initiale,
+        popup="Point de départ",
+        icon=folium.Icon(color="green"),
+        draggable=True,
+    ).add_to(m)
+
+    folium.Marker(
+        location=st.session_state.position_finale,
+        popup="Point d'arrivée",
+        icon=folium.Icon(color="red"),
+        draggable=True,
+    ).add_to(m)
 
     # Intégrer la carte dans Streamlit
     output = st_folium(m, width=700, height=500)
 
-    # Mettre à jour les positions en fonction des clics
-    if output and "last_clicked" in output:
-        if st.button("Définir comme point de départ"):
-            p.position_initiale = output["last_clicked"]["lat"], output["last_clicked"]["lng"]
-        elif st.button("Définir comme point d'arrivée"):
-            p.position_finale = output["last_clicked"]["lat"], output["last_clicked"]["lng"]
+    # Bouton pour valider les positions des marqueurs
+    if st.button("Valider les positions"):
+        # Mise à jour des positions selon les données de la carte
+        if output and "last_clicked" in output:
+            last_clicked = output["last_clicked"]
+            if last_clicked:
+                st.session_state.position_finale = (
+                    last_clicked["lat"],
+                    last_clicked["lng"],
+                )
+                st.success("Positions validées avec succès.")
+        else:
+            st.error("Déplacez les marqueurs avant de valider.")
 
-    # Afficher les positions choisies
-    st.write(f"Position initiale : {p.position_initiale}")
-    st.write(f"Position finale : {p.position_finale}")
-
-    # Paramètres avancés
-    st.subheader("Paramètres avancés")
-    p.pas_temporel = st.number_input("Pas temporel (en heures)", value=p.pas_temporel, min_value=1, step=1)
-    p.pas_angle = st.number_input("Pas d'angle (en degrés)", value=p.pas_angle, min_value=1, step=1)
-    p.tolerance_arrivée = st.number_input("Tolérance d'arrivée (en degrés)", value=p.tolerance_arrivée, format="%.6f")
-    p.rayon_elemination = st.number_input("Rayon d'élimination (en degrés)", value=p.rayon_elemination, format="%.6f")
-
-    st.success("Paramètres configurés. Passez à l'onglet 'Visualisation' pour exécuter le routage.")
-
+    # Afficher les positions actuelles
+    st.write(f"Position initiale : {st.session_state.position_initiale}")
+    st.write(f"Position finale : {st.session_state.position_finale}")
 
 def afficher_visualisation():
     """Affiche la visualisation des résultats du routage."""

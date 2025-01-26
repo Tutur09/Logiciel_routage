@@ -3,10 +3,7 @@ import pandas as pd
 import math
 from time import time
 import matplotlib.pyplot as plt
-from matplotlib.path import Path
 
-import alphashape
-from shapely.geometry import Point, MultiPoint, MultiPolygon, Polygon
 from cartopy import crs as ccrs, feature as cfeature
 
 import Routage_Vent as rv
@@ -68,12 +65,8 @@ def traiter_point(lat, lon, pas_temporel, pas_angle, heure, filtrer_par_distance
 
         if p.land_contact:
             enfants = [enfant for enfant in enfants if rc.get_point_value(enfant) == 0]
-                    #    if plus_proche_que_parent(p.position_finale, parent_point, enfant)
-                    #    and rc.get_point_value(enfant) == 0]
         else:
-            enfants = [enfant for enfant in enfants] 
-                    #    if plus_proche_que_parent(p.position_finale, parent_point, enfant)]
-
+            enfants = [enfant for enfant in enfants if plus_proche_que_parent(p.position_finale, parent_point, enfant)] 
     return [parent_point, enfants]
 
 def prochains_points_liste_parent_enfants(liste, pas_temporel, pas_angle, heure, filtrer_par_distance=True):
@@ -190,7 +183,8 @@ def plot_point_live(ax, enveloppe_concave, parent_map, position_initiale, positi
 
     # Tracer l'enveloppe concave
     hull_lat, hull_lon = zip(*enveloppe_concave)
-    # ax.plot(hull_lon + (hull_lon[0],), hull_lat + (hull_lat[0],), color=couleur, linestyle='-', linewidth=1, transform=ccrs.PlateCarree())
+    if p.enveloppe:
+        ax.plot(hull_lon + (hull_lon[0],), hull_lat + (hull_lat[0],), color=couleur, linestyle='-', linewidth=1, transform=ccrs.PlateCarree())
     ax.scatter(hull_lon, hull_lat, color='red', s=10, transform=ccrs.PlateCarree(), label='Enveloppe actuelle')
 
     # Déterminer le point le plus proche de la destination

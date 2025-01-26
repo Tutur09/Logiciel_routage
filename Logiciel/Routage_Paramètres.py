@@ -5,15 +5,20 @@ from datetime import datetime, timedelta
 
 "PARAMETRES DE NAVIGATION"
 
-# "TRAVERSEE ATLANTIQUE"
+"TRAVERSEE ATLANTIQUE"
 # position_finale, position_initiale = ((-1.8390148914037843, 46.468986830218), (-15.44764920293199, 44.793006205066064)) 
-# bg = (42, -16)
-# hd = (49, 0)
+# bg = (37.751188312991886, -74.80351747265776)
+# hd = (61.24779029169383, -0.7117176270096285)
 
-"GOLF DE GASCOGNE"
+"BRETAGNE"
 position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
 bg = (46, -7)
 hd = (49, -1.5)
+
+"GOLF DE GASCOGNE"
+# position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
+# bg = (43, -9)
+# hd = (48.9, -0.9)
 
 "MEDITERRANNEE"
 # position_initiale, position_finale = ((4.449957059919272, 43.03482228137273), (7.750689156750921, 39.763423641448114))
@@ -34,33 +39,33 @@ cadre_navigation = (bg, hd)
 loc_nav = [bg[1], hd[1], bg[0], hd[0]]
 
 
-pas_temporel = 1
+pas_temporel = 0.5
 pas_angle = 10
 
-heure_initiale = 11 
-date_initiale = "0119" 
+heure_initiale = 20
+date_initiale = "0126" # MMJJ
 
 tolerance = 0.0001
 rayon_elemination = 0.1
 
-skip = 10
-skip_vect_vent = 10
+skip = 4
+skip_vect_vent = 4
 
 tolerance_arrivée = 0.1
 
 land_contact = True
 enregistrement = False
-live = False
+live = True
 print_données = True
 data_route = True
+enveloppe = False
 
 
 drapeau = True
 
 # FICHIER METEO, TERRE
-land = r'Logiciel\Carte_frontières_terrestre\ne_10m_land.shp'
+vent = r"Données_vent\METEOFRANCE_AROME_20Z_VENT_0126_.grib"
 new = False
-vent = r"METEOCONSULT12Z_VENT_0119_Gascogne.grb"
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'
 
@@ -71,7 +76,7 @@ output_dir = r'C:\Users\arthu\OneDrive\Arthur\Programmation\TIPE_Arthur_Lhoste\i
 
 # PARAMETRES POUR LA POLAIRE
 delimeter = r';'  # r'\s+' si Sunfastpol sinon r';'  pour Imoca 
-polaire = r'Imoca2.pol'
+polaire = r'Polaire\Imoca2.pol'
 
 
 "PARAMETRES VISUELS"
@@ -103,9 +108,7 @@ if match:
     # print(f"L'heure initiale est : {heure_grib}")
     # print(f"La date initiale du GRIB est : {date_grib}")
 else:
-    print("Impossible d'extraire l'heure et/ou la date.")
-    exit()
-
+    pass
 try:
     # Date et heure initiales du GRIB
     date_heure_grib = datetime.strptime(date_grib, "%m%d") + timedelta(hours=heure_grib)

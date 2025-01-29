@@ -332,51 +332,58 @@ def enregistrement_route(chemin_lon, chemin_lat, pas_temporel, output_dir='./', 
         plt.close()
         heure += pas_temporel
         point += 1
-       
+
 def point_ini_fin(loc):
     points = []
 
     def on_click(event):
         if event.inaxes:
-            x, y = event.xdata, event.ydata
-            points.append((y, x))
-            print(f"Point sélectionné: {y}N{x}E")
+            x, y = float(event.xdata), float(event.ydata)
+            points.append((y, x))  # Latitude, Longitude
+            print(f"Point sélectionné : {y:.2f}N, {x:.2f}E")
 
-            # On ajoute les points une fois cliqué
-            ax.scatter(x, y, color='red', marker = 'x', s=100, zorder=5, transform=ccrs.PlateCarree())
-            plt.draw()  
+            # Ajout d'un point rouge pour le départ, bleu pour l'arrivée, vert pour les intermédiaires
+            color = "green" if len(points) == 1 else "red" if len(points) == 2 else "black"
+            label = (
+                "Départ" if len(points) == 1 else
+                "Arrivée" if len(points) == 2 else
+                f"Intermédiaire {len(points) - 2}"
+            )
+            ax.scatter(x, y, color=color, marker="x", s=100, zorder=5, transform=ccrs.PlateCarree(), label=label)
+            ax.legend(loc="upper left")
+            plt.draw()
 
-            # Pas plus de deux points
-            if len(points) == 2:
-                fig.canvas.mpl_disconnect(cid)  
-
-    fig, ax = plt.subplots(figsize=(12, 7), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, ax = plt.subplots(figsize=(12, 7), subplot_kw={"projection": ccrs.PlateCarree()})
     
-    # Localisation de la carte
+    # Définir l'étendue de la carte
     ax.set_extent(loc, crs=ccrs.PlateCarree())
     
-    # Paramètre de résolution
-    ax.add_feature(cfeature.COASTLINE.with_scale('10m'), linewidth=1)
-    ax.add_feature(cfeature.BORDERS.with_scale('10m'), linestyle=':')
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    # Ajouter les caractéristiques géographiques
+    ax.add_feature(cfeature.COASTLINE.with_scale("10m"), linewidth=1)
+    ax.add_feature(cfeature.BORDERS.with_scale("10m"), linestyle=":")
+    ax.add_feature(cfeature.LAND, facecolor="lightgray")
+    ax.add_feature(cfeature.OCEAN, facecolor="lightblue")
     
-    # Tracer une grille de latitude/longitude
-    gl = ax.gridlines(draw_labels=True, color='gray', alpha=0.5, linestyle='--')
+    # Ajouter une grille de latitude/longitude
+    gl = ax.gridlines(draw_labels=True, color="gray", alpha=0.5, linestyle="--")
     gl.top_labels = False
     gl.right_labels = False
 
     # Connecter l'événement de clic
-    cid = fig.canvas.mpl_connect('button_press_event', on_click)
+    cid = fig.canvas.mpl_connect("button_press_event", on_click)
     
-    plt.title("Cliquez pour choisir le point de départ puis point final")
+    plt.title("Cliquez pour choisir le point de départ, d'arrivée et des points intermédiaires")
     plt.show()
     
-    if len(points) == 2:
-        return points[0], points[1]
+    # Retourner tous les points sélectionnés
+    if len(points) >= 2:
+        point_final = points.pop(1)
+        points.append(point_final)
+        return points
     else:
-        print("Sélection incomplète.")
+        print("Sélection incomplète. Veuillez sélectionner au moins deux points (départ et arrivée).")
         return None
+
   
 
 #Chemin d'accès du fichier GRIB vent et courant (pas encore fait)
@@ -412,5 +419,5 @@ else:
 
 if __name__ == '__main__':
     ds = xr.open_dataset(file_path, engine='cfgrib')
-    print(ds)
-    # plot_grib([0])
+    
+    print(point_ini_fin(p.loc_nav))

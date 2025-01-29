@@ -13,13 +13,12 @@ import Routage_Coastline as rc
 
 from concurrent.futures import ThreadPoolExecutor
 
+"Constantes"
+R = 3440.0
+
 def projection(position, cap, distance):
     lat_ini = position[0]    
     long_ini = position[1]
-    
-    
-    R = 3440.0
-    
     lat_ini_rad = math.radians(lat_ini)
     long_ini_rad = math.radians(long_ini)
     
@@ -48,7 +47,7 @@ def prochains_points(position, pol_v_vent, d_vent, pas_temporel, pas_angle):
 
     return liste_points
 
-def traiter_point(lat, lon, pas_temporel, pas_angle, heure, filtrer_par_distance):
+def traiter_point(lat, lon, point_suivant, pas_temporel, pas_angle, heure, filtrer_par_distance):
     parent_point = (lat, lon)
 
     v_vent, d_vent = rv.get_wind_at_position(lat, lon, heure)
@@ -66,14 +65,14 @@ def traiter_point(lat, lon, pas_temporel, pas_angle, heure, filtrer_par_distance
         if p.land_contact:
             enfants = [enfant for enfant in enfants if rc.get_point_value(enfant) == 0]
         else:
-            enfants = [enfant for enfant in enfants if plus_proche_que_parent(p.position_finale, parent_point, enfant)] 
+            enfants = [enfant for enfant in enfants if plus_proche_que_parent(point_suivant, parent_point, enfant)] 
     return [parent_point, enfants]
 
-def prochains_points_liste_parent_enfants(liste, pas_temporel, pas_angle, heure, filtrer_par_distance=True):
+def prochains_points_liste_parent_enfants(liste, point_suivant, pas_temporel, pas_angle, heure, filtrer_par_distance=True):
     # Utilisation d’un ThreadPoolExecutor pour paralléliser les opérations
     with ThreadPoolExecutor() as executor:
         # On lance en parallèle le traitement de chaque point de la liste
-        futures = [executor.submit(traiter_point, lat, lon, pas_temporel, pas_angle, heure, filtrer_par_distance) 
+        futures = [executor.submit(traiter_point, lat, lon, point_suivant, pas_temporel, pas_angle, heure, filtrer_par_distance) 
                    for lat, lon in liste]
 
         # On récupère les résultats quand ils sont prêts
@@ -164,7 +163,7 @@ def dist_bateau_point(points, point_final, n):
             return True    
     return False
     
-def plot_point_live(ax, enveloppe_concave, parent_map, position_initiale, position_finale, step_index, loc, couleur='blue'):
+def plot_point_live(ax, enveloppe_concave, parent_map, position_initiale, position_finale, route, step_index, loc, couleur='blue'):
     # Effacer uniquement les vecteurs de vent et les chemins, mais garder les enveloppes
     for artist in ax.collections:
         if artist.get_label() != 'Enveloppe actuelle':  # Ne pas supprimer l'enveloppe
@@ -198,13 +197,17 @@ def plot_point_live(ax, enveloppe_concave, parent_map, position_initiale, positi
         current_point = parent_map[current_point]
 
     chemin_ideal.reverse()
+    
+    chemin_ideal = route + chemin_ideal
 
     if chemin_ideal:
         chemin_lat, chemin_lon = zip(*chemin_ideal)
         ax.plot(chemin_lon, chemin_lat, color='black', linestyle='-', linewidth=2, label='Route', transform=ccrs.PlateCarree())
         p_r = ax.scatter(chemin_lon, chemin_lat, color='black', s=50, transform=ccrs.PlateCarree())
-        p_f = ax.scatter(position_finale[1], position_finale[0], color='green', s=100, marker='o', label='Position finale')
-        p_i = ax.scatter(position_initiale[1], position_initiale[0], color='red', s=100, marker='o', label='Position initiale')
+        p_f = ax.scatter(p.points[-1][1], p.points[-1][0], color='red', s=100, marker='o', label='Position finale')
+        p_i = ax.scatter(p.points[0][1], p.points[0][0], color='green', s=100, marker='o', label='Position initiale')
+        for point in p.points[1:-1]:
+            ax.scatter(point[1], point[0], color = 'black', s= 70, marker = 'o', label = 'point intermédiare')
     else:
         print("Chemin idéal vide : impossible de tracer la route.")
 
@@ -258,23 +261,12 @@ def calculer_cap(lat1, lon1, lat2, lon2):
     return cap
 
 
-def itere_jusqua_dans_enveloppe(position_initiale, position_finale, pas_temporel, pas_angle, tolerance, loc_nav, live=False, enregistrement=True, streamlit = False):
+def itere_jusqua_dans_enveloppe(points):
     
-    heure = p.heure_début
     
-    temp = pas_temporel
-    
-    positions = [position_initiale]
-    
-    iter_count = 0
-    
-    parent_map = {position_initiale: None}
-    
-    envconcave_precedent = []
-    
-    if live:
+    if p.live:
         fig, ax = plt.subplots(figsize=(20, 16), subplot_kw={'projection': ccrs.PlateCarree()})
-        ax.set_extent(loc_nav, crs=ccrs.PlateCarree())
+        ax.set_extent(p.loc_nav, crs=ccrs.PlateCarree())
         ax.add_feature(cfeature.COASTLINE.with_scale('10m'), linewidth=1)
         ax.add_feature(cfeature.BORDERS.with_scale('10m'), linestyle=':')
         ax.add_feature(cfeature.LAND, facecolor='lightgray')
@@ -283,106 +275,129 @@ def itere_jusqua_dans_enveloppe(position_initiale, position_finale, pas_temporel
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
-
-    while True:
-        if p.print_données:    
-            print(f"Iteration {iter_count}:")
-            print('Heure ', heure)
-
-        liste_parents_enfants = prochains_points_liste_parent_enfants(positions, temp, pas_angle, math.floor(heure), filtrer_par_distance=True)
         
-        heure += pas_temporel
+    def itération(point1, point2, heure, parent_map ,points = points, route = []):
         
-        points_aplatis = flatten_list_fast(liste_parents_enfants)
+        positions = [point1]
         
-        enveloppe_concave = envconc.enveloppe_concave(np.array((points_aplatis)))
-        enveloppe_concave = elaguer_enveloppe(enveloppe_concave, p.rayon_elemination)
-        enveloppe_concave = [
-            point for point in enveloppe_concave
-            if not any(np.array_equal(point, precedent) for precedent in envconcave_precedent)
-        ]
-        enveloppe_concave.append((position_initiale)) 
-        enveloppe_concave = sort_points_clockwise(enveloppe_concave)
-        envconcave_precedent = enveloppe_concave
-        
-        if p.print_données:
-            print("Nombre de points dans enveloppe_concave:", len(enveloppe_concave), len(points_aplatis))
-
-        for parent, enfants in liste_parents_enfants:
-            for enfant in enfants:
-                if enfant not in parent_map:
-                    parent_map[enfant] = parent
-
-        
-        if live:
-            plot_point_live(ax, enveloppe_concave, parent_map, position_initiale, position_finale, step_index=heure, loc=loc_nav)
-                
-        # Mettre à jour les positions pour la prochaine itération
-        positions = enveloppe_concave
-        if p.print_données:
-            print("le nombre de points est : ", len(positions))
-        
-        if dist_bateau_point(positions, position_finale, p.tolerance):
-            if temp >= 0.5:
-                temp *= 2/3
-
-        closest_point = min(enveloppe_concave, key=lambda point: distance(point, position_finale))
-        if p.print_données:
-            print('distance arrivée, point_plus_proche ', distance(closest_point, position_finale))
-
-        
-        if dist_bateau_point(positions, position_finale, tolerance):
-            print("La position finale est maintenant dans l'enveloppe concave.")
+        iter_count = 0
+             
+        envconcave_precedent = []   
             
-            # Détermination du point le plus proche de la position finale
-            closest_point = min(points_aplatis, key=lambda point: distance(point, position_finale))
-            print(f"Le point le plus proche de la position finale est : {closest_point}")
+        
+        while True:
+            if p.print_données:    
+                print(f"Iteration {iter_count}:")
+                print('Heure ', heure)
+
+            liste_parents_enfants = prochains_points_liste_parent_enfants(positions, point2, p.pas_temporel, p.pas_angle, math.floor(heure), filtrer_par_distance=True)
             
-            # Tracer le chemin idéal en remontant les relations parent-enfant
-            chemin_ideal = []
-            current_point = closest_point
-            while current_point is not None:
-                chemin_ideal.append(current_point)
-                current_point = parent_map[current_point]
+            heure += p.pas_temporel
             
-            chemin_ideal.reverse()  # Inverser pour avoir le chemin de l'origine à la destination
-            chemin_lat, chemin_lon = zip(*chemin_ideal)
+            points_aplatis = flatten_list_fast(liste_parents_enfants)
+            
+            enveloppe_concave = envconc.enveloppe_concave(np.array((points_aplatis)))
+            enveloppe_concave = elaguer_enveloppe(enveloppe_concave, p.rayon_elemination)
+            enveloppe_concave = [
+                point for point in enveloppe_concave
+                if not any(np.array_equal(point, precedent) for precedent in envconcave_precedent)
+            ]
+            enveloppe_concave.append((point1)) 
+            enveloppe_concave = sort_points_clockwise(enveloppe_concave)
+            envconcave_precedent = enveloppe_concave
+            
+            if p.print_données:
+                print("Nombre de points dans enveloppe_concave:", len(enveloppe_concave), len(points_aplatis))
 
-            if p.data_route:
-                with open("Informations_route.txt", "w") as fichier:
-                    n = len(chemin_lon)
-                    for i in range(n-1):
-                        horaire = p.heure_début + i*p.pas_temporel
-                        val_vent = rv.get_wind_at_position(chemin_lat[i], chemin_lon[i], horaire) 
-                        fichier.write(f"Heure: {horaire}\n")
-                        fichier.write(f"Position : {chemin_lat[i], chemin_lon[i]}\n")
-                        cap = calculer_cap(chemin_lat[i], chemin_lon[i], chemin_lat[i+1], chemin_lon[i+1])
-                        fichier.write(f"Prediction de vent a la position {val_vent[1]} degre pour {val_vent[0]} knd\n")
-                        fichier.write(f"Cap : {round(cap, 2)}\n")
-                        fichier.write(f"Vitesse : {round(recup_vitesse_fast(polaire(val_vent[0]), val_vent[1] - cap), 2)}\n")
-                        fichier.write("-----------------------------------------------------------\n")
+            for parent, enfants in liste_parents_enfants:
+                for enfant in enfants:
+                    if enfant not in parent_map:
+                        parent_map[enfant] = parent
 
-
+            
+            if p.live:
+                plot_point_live(ax, enveloppe_concave, parent_map, point1, point2, route, step_index=heure, loc=p.loc_nav)
                     
-            if not live and not streamlit:
-                rv.plot_grib(heure = [heure], route={'lon': chemin_lon, 'lat': chemin_lat})
-
-            if live:      
-                plt.plot(chemin_lon, chemin_lat, color='black', linestyle='-', linewidth=2, label='Chemin Idéal')
-                plt.scatter(chemin_lon, chemin_lat, color='black', s=50)
-                plt.show()
-                
+            # Mettre à jour les positions pour la prochaine itération
+            positions = enveloppe_concave
+            if p.print_données:
+                print("le nombre de points est : ", len(positions))
             
-            break        
+            if dist_bateau_point(positions, point2, p.tolerance_arrivée):
+                print(points)
+                last_point = points.pop(0)
+                print(points)
+                print(len(points))
+                
+                if len(points) == 0:
+                    print("La position finale est maintenant dans l'enveloppe concave.")
+                    
+                    # Détermination du point le plus proche de la position finale
+                    closest_point = min(points_aplatis, key=lambda point: distance(point, last_point))
+                    print(f"Le point le plus proche de la position finale est : {closest_point}")
+                    
+                    # Tracer le chemin idéal en remontant les relations parent-enfant
+                    chemin_ideal = []
+                    current_point = closest_point
+                    while current_point is not None:
+                        chemin_ideal.append(current_point)
+                        current_point = parent_map[current_point]
+                    
+                    chemin_ideal.reverse()  # Inverser pour avoir le chemin de l'origine à la destination
+                    chemin_ideal = route + chemin_ideal
+                    chemin_lat, chemin_lon = zip(*chemin_ideal)
+
+                    if p.data_route:
+                        with open("Informations_route.txt", "w") as fichier:
+                            n = len(chemin_lon)
+                            for i in range(n-1):
+                                horaire = p.heure_début + i*p.pas_temporel
+                                val_vent = rv.get_wind_at_position(chemin_lat[i], chemin_lon[i], horaire) 
+                                fichier.write(f"Heure: {horaire}\n")
+                                fichier.write(f"Position : {chemin_lat[i], chemin_lon[i]}\n")
+                                cap = calculer_cap(chemin_lat[i], chemin_lon[i], chemin_lat[i+1], chemin_lon[i+1])
+                                fichier.write(f"Prediction de vent a la position {val_vent[1]} degre pour {val_vent[0]} knd\n")
+                                fichier.write(f"Cap : {round(cap, 2)}\n")
+                                fichier.write(f"Vitesse : {round(recup_vitesse_fast(polaire(val_vent[0]), val_vent[1] - cap), 2)}\n")
+                                fichier.write("-----------------------------------------------------------\n")
+                            
+                    if not p.live and not p.streamlit:
+                        rv.plot_grib(heure = [heure], route={'lon': chemin_lon, 'lat': chemin_lat})
+
+                    if p.live:      
+                        plt.plot(chemin_lon, chemin_lat, color="black", linestyle='-', linewidth=2, label='Chemin Idéal')
+                        plt.scatter(chemin_lon, chemin_lat, color='black', s=50)
+                        plt.show()
+                        
+                    break   
+                
+                else:
+                    closest_point = min(points_aplatis, key=lambda point: distance(point, last_point))
+                    print(f"Le point le plus proche de la position finale est : {closest_point}")
+                    
+                    # Tracer le chemin idéal en remontant les relations parent-enfant
+                    chemin_ideal = []
+                    current_point = closest_point
+                    while current_point is not None:
+                        chemin_ideal.append(current_point)
+                        current_point = parent_map[current_point]
+                    
+                    chemin_ideal.reverse()
+                    route = route + chemin_ideal
+                    iter_count += 1
+                    print(route)
+                    itération(closest_point, points[0], heure, {closest_point: None}, points, route)   
+                
+        if p.enregistrement:
+            lien_dossier = "route_ideale" 
+            rv.enregistrement_route(chemin_lon, chemin_lat, p.pas_temporel, output_dir=lien_dossier)
         
-        iter_count += 1
-        stop = time()
+        return {'lon': chemin_lon, 'lat': chemin_lat}
     
-    if enregistrement:
-        lien_dossier = "route_ideale" 
-        rv.enregistrement_route(chemin_lon, chemin_lat, pas_temporel, output_dir=lien_dossier)
-    
-    return {'lon': chemin_lon, 'lat': chemin_lat}
+    point_départ = points.pop(0)
+    point_suivant = points[0]
+    itération(point_départ, point_suivant, p.heure_début, {point_départ: None}, points, route = [])
+
 
 #Avant dans la fonction polaire, mais je le sors pour le calculer une fois
 polaire_df = pd.read_csv(p.polaire, delimiter=p.delimeter, index_col=0)

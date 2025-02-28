@@ -16,9 +16,9 @@ from datetime import datetime, timedelta
 # hd = (49, -1.5)
 
 "GOLF DE GASCOGNE"
-# position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
-# bg = (43, -9)
-# hd = (48.9, -0.9)
+position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
+bg = (43, -9.5)
+hd = (48.9, -0.9)
 
 "MEDITERRANNEE"
 # position_initiale, position_finale = ((4.449957059919272, 43.03482228137273), (7.750689156750921, 39.763423641448114))
@@ -26,9 +26,9 @@ from datetime import datetime, timedelta
 # hd = (43.585020563003646, 9.390756905813463)
 
 "BAIE DE QUIBERON"
-position_initiale, position_finale = ((47.51947360133281, -3.02934453657029), (47.29641627857444, -3.3177356614143387))
-bg = (47.19946468891098, -3.405626289938239)
-hd = (47.64175257800393, -2.806871383119167)
+# position_initiale, position_finale = ((47.51947360133281, -3.02934453657029), (47.29641627857444, -3.3177356614143387))
+# bg = (47.19946468891098, -3.405626289938239)
+# hd = (47.64175257800393, -2.806871383119167)
 
 "Atlantique centrale"
 # position_initiale, position_finale = ((12.75, -33.1), (24.33, -32.80))
@@ -40,32 +40,35 @@ loc_nav = [bg[1], hd[1], bg[0], hd[0]]
 
 points = [position_initiale, position_finale]
 
-pas_temporel = 0.2
+pas_temporel = 1
 pas_angle = 10
 
-heure_initiale = 22
-date_initiale = "0128" # MMJJ
+heure_initiale = 8
+date_initiale = "0226" # MMJJ
 
 tolerance = 0.0001
-rayon_elemination = 0.01
+rayon_elemination = 0.05
 
-skip = 1
-skip_vect_vent = 3
+skip = 5
+skip_vect_vent = 5
 
-tolerance_arrivée = 0.03
+tolerance_arrivée = 0.1
 
-land_contact = True
+land_contact = False
+
 enregistrement = False
+enregistrement_live = True
+
 live = True
 print_données = True
 data_route = True
-enveloppe = False
+enveloppe = True
 
 
 drapeau = True
 
 # FICHIER METEO, TERRE
-vent = r"Données_vent\METEOFRANCE_AROME_21Z_VENT_0128_.grib"
+vent = r"Données_vent\METEOFRANCE_AROME_12Z_VENT_0128_.grib"
 new = False
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'
@@ -76,8 +79,8 @@ type = 'grib'
 output_dir = r'C:\Users\arthu\OneDrive\Arthur\Programmation\TIPE_Arthur_Lhoste\images_png'
 
 # PARAMETRES POUR LA POLAIRE
-delimeter = r'\s+'  # r'\s+' si Sunfastpol sinon r';'  pour Imoca 
-polaire = r'Polaire\Sunfast3600.pol'
+delimeter = r';'  # r'\s+' si Sunfastpol sinon r';'  pour Imoca 
+polaire = r'Polaire\Imoca2.pol'
 
 
 "PARAMETRES VISUELS"

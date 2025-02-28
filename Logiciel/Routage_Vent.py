@@ -155,8 +155,83 @@ def plot_wind(ax, loc, step_indices=[1], chemin_x=None, chemin_y=None):
         if chemin_x is not None and chemin_y is not None:
             ax.plot(chemin_x, chemin_y, color='black', linestyle='-', linewidth=2, label='Chemin Idéal', transform=ccrs.PlateCarree())
             ax.scatter(chemin_x, chemin_y, color='black', s=50, transform=ccrs.PlateCarree())
+        
+def plot_wind_tk(ax, canvas, loc, step_indices=[1], chemin_x=None, chemin_y=None):
+    ax.set_extent(loc, crs=ccrs.PlateCarree())
+    ax.add_feature(cfeature.COASTLINE.with_scale("10m"), linewidth=1)
+    ax.add_feature(cfeature.BORDERS.with_scale("10m"), linestyle=":")
+    ax.add_feature(cfeature.LAND, facecolor="lightgray")
+    ax.add_feature(cfeature.OCEAN, facecolor="lightblue")
+    ax.scatter(p.position_finale[0], p.position_finale[1], color='black', s=100, marker='*', label='Position Finale')
 
-def plot_grib(heure, position=None, route=None, context=None):
+    # Définition de la colormap pour la vitesse du vent
+    cmap = mcolors.ListedColormap(p.colors_windy)
+    norm = mcolors.BoundaryNorm(p.wind_speed_bins, cmap.N)
+
+    for step_index in step_indices:
+        try:
+            if p.type == "grib":
+                # Extraction des données GRIB
+                u10_specific = ds['u10'].isel(step=int(step_index)).values
+                v10_specific = ds['v10'].isel(step=int(step_index)).values
+                latitudes = ds['latitude'].values
+                longitudes = ds['longitude'].values
+
+            elif p.type == "excel":
+                # Extraction des données Excel
+                u10_specific = u_xl[0]
+                v10_specific = v_xl[0]
+                latitudes = lat_xl
+                longitudes = lon_xl
+
+            else:
+                raise ValueError("La source de données doit être 'grib' ou 'excel'.")
+
+            # Sous-échantillonnage
+            skip = p.skip
+            latitudes = latitudes[::skip]
+            longitudes = longitudes[::skip]
+            u10_specific = u10_specific[::skip, ::skip]
+            v10_specific = v10_specific[::skip, ::skip]
+
+            # Calcul de la vitesse du vent
+            wind_speed = 1.852 * np.sqrt(u10_specific**2 + v10_specific**2)
+
+            # Colorier la carte avec les vitesses du vent
+            # mesh = ax.pcolormesh(
+            #     longitudes, latitudes, wind_speed,
+            #     transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto'
+            # )
+
+            # Ajouter des vecteurs noirs pour la direction du vent
+            skip_vect = p.skip_vect_vent
+            ax.barbs(
+                longitudes[::skip_vect], latitudes[::skip_vect],
+                1.852 * u10_specific[::skip_vect, ::skip_vect],
+                1.852 * v10_specific[::skip_vect, ::skip_vect],
+                length=5, pivot='middle', barbcolor='black', linewidth=0.6,
+                transform=ccrs.PlateCarree()
+            )
+
+            # if p.drapeau:
+            #     cbar = plt.colorbar(
+            #         mappable=mesh, ax=ax, orientation='vertical', pad=0.02, shrink=0.5
+            #     )
+            #     cbar.set_label("Vitesse du vent (nœuds)")
+            # p.drapeau = False
+
+            # Tracer le chemin idéal s'il est fourni
+            if chemin_x is not None and chemin_y is not None:
+                ax.plot(chemin_x, chemin_y, color='black', linestyle='-', linewidth=2, label='Chemin Idéal', transform=ccrs.PlateCarree())
+                ax.scatter(chemin_x, chemin_y, color='black', s=50, transform=ccrs.PlateCarree())
+
+        except IndexError:
+            print(f"⚠️ Avertissement : step_index {step_index} hors limite des données.")
+
+    # Mettre à jour l'affichage en live dans Tkinter
+    canvas.draw()
+
+def plot_grib(heure, position=None, route=None, context=None, skip = p.skip, skip_vect_vent = p.skip_vect_vent):
     if not isinstance(heure, list):
         heure = [heure]
 
@@ -212,7 +287,6 @@ def plot_grib(heure, position=None, route=None, context=None):
             else:
                 raise ValueError("Source de données invalide.")
 
-            skip = p.skip
             wind_speed = 1.852 * np.sqrt(u10_specific[::skip, ::skip]**2 + v10_specific[::skip, ::skip]**2)
 
             # Plot wind speed
@@ -222,7 +296,7 @@ def plot_grib(heure, position=None, route=None, context=None):
             )
 
             # Pour ajout des barbes
-            skip_vect_vent = p.skip_vect_vent
+            
             ax.barbs(
                 longitudes[::skip_vect_vent], latitudes[::skip_vect_vent],
                 1.852 * u10_specific[::skip_vect_vent, ::skip_vect_vent],
@@ -249,7 +323,7 @@ def plot_grib(heure, position=None, route=None, context=None):
                 )
                 ax.legend(loc="upper right")
 
-            ax.set_title(f"Carte des vents - Heure {h - p.heure_début}")
+            ax.set_title(f"Carte des vents - Heure {h}")  # - p.heure_début
         else:
             print(f"Invalid axis at index {idx}")
 
@@ -302,7 +376,7 @@ def get_wind_at_position(lat, lon, time_step=0):
     except Exception as e:
         return get_wind_at_position(lat, lon, -1)
     
-def enregistrement_route(chemin_lon, chemin_lat, pas_temporel, output_dir='./', skip=4):
+def enregistrement_route(chemin_lon, chemin_lat, pas_temporel, output_dir='./'):
     # Créer le répertoire de sortie s'il n'existe pas
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -321,7 +395,7 @@ def enregistrement_route(chemin_lon, chemin_lat, pas_temporel, output_dir='./', 
                 'lon': chemin_lon[:point + 1],
                 'lat': chemin_lat[:point + 1]
             },
-            context="enregistrement"
+            context = "enregistrement", skip = 10, skip_vect_vent = 10
         )
 
         # Sauvegarder la figure dans le répertoire de sortie
@@ -334,7 +408,7 @@ def enregistrement_route(chemin_lon, chemin_lat, pas_temporel, output_dir='./', 
         point += 1
 
 def point_ini_fin(loc):
-    points = []
+    points = [] 
 
     def on_click(event):
         if event.inaxes:
@@ -419,5 +493,5 @@ else:
 
 if __name__ == '__main__':
     ds = xr.open_dataset(file_path, engine='cfgrib')
-    
-    print(point_ini_fin(p.loc_nav))
+    print(ds)
+    plot_grib([0], skip = 1, skip_vect_vent = 25)

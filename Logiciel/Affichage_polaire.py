@@ -4,6 +4,7 @@ import numpy as np
 import Routage_calcul as rc
 import Routage_Paramètres as p
 
+plt.style.use('ggplot')
 
 def affiche_polaire(vitesses_vent):
     """
@@ -21,13 +22,13 @@ def affiche_polaire(vitesses_vent):
             angles = np.deg2rad(result.index)  # Conversion en radians
             angles_360 = np.concatenate([angles, 2*np.pi - angles[::-1]])
             values_360 = np.concatenate([result.values, result.values[::-1]])  # Refléter les valeurs
-            ax.plot(angles_360, values_360, label=f'Vitesse du vent : {vitesse} m/s', marker='o')
+            ax.plot(angles_360, values_360, label=f'Vitesse du vent : {vitesse} knt', marker='o')
             
     ax.set_theta_zero_location("N")  # 0° au Nord
     ax.set_theta_direction(-1)       # Sens horaire
-    ax.set_title(f"Polaire {str(p.polaire)}", va='bottom')
+    # ax.set_title(f"Polaire {str(p.polaire)}", va='bottom')
     ax.legend(loc='right', bbox_to_anchor=(1.5, 1))
         
     plt.show()
         
-affiche_polaire([5, 10, 15, 20, 25, 30, 35])
+affiche_polaire([5, 10, 15, 20, 25, 30])

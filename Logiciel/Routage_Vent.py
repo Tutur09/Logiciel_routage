@@ -156,8 +156,8 @@ def plot_wind(ax, loc, step_indices=[1], chemin_x=None, chemin_y=None):
             ax.plot(chemin_x, chemin_y, color='black', linestyle='-', linewidth=2, label='Chemin Idéal', transform=ccrs.PlateCarree())
             ax.scatter(chemin_x, chemin_y, color='black', s=50, transform=ccrs.PlateCarree())
         
-def plot_wind_tk(ax, canvas, loc, step_indices=[1], chemin_x=None, chemin_y=None):
-    ax.set_extent(loc, crs=ccrs.PlateCarree())
+def plot_wind_tk(ax, canvas, loc, step_indices=[1], chemin_x=None, chemin_y=None, couleur = False):
+    # ax.set_extent(loc, crs=ccrs.PlateCarree())
     ax.add_feature(cfeature.COASTLINE.with_scale("10m"), linewidth=1)
     ax.add_feature(cfeature.BORDERS.with_scale("10m"), linestyle=":")
     ax.add_feature(cfeature.LAND, facecolor="lightgray")
@@ -198,10 +198,11 @@ def plot_wind_tk(ax, canvas, loc, step_indices=[1], chemin_x=None, chemin_y=None
             wind_speed = 1.852 * np.sqrt(u10_specific**2 + v10_specific**2)
 
             # Colorier la carte avec les vitesses du vent
-            # mesh = ax.pcolormesh(
-            #     longitudes, latitudes, wind_speed,
-            #     transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto'
-            # )
+            if couleur:
+                mesh = ax.pcolormesh(
+                    longitudes, latitudes, wind_speed,
+                    transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto'
+                )
 
             # Ajouter des vecteurs noirs pour la direction du vent
             skip_vect = p.skip_vect_vent

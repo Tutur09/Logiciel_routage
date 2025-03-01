@@ -8,20 +8,35 @@ import Routage_Paramètres as p
 import Routage_calcul as rc
 import Routage_Vent as rv
 import threading
+import geocoder
 
 class RoutageApp:
     def __init__(self, root):
         self.root = root
+        
+        icon = tk.PhotoImage(file=r"Exemples\Carte_vents_tempête.png")
+        self.root.iconphoto(True, icon)
+
         self.root.title("Logiciel de Routage")
         self.root.geometry("1200x800")
         self.is_fullscreen = False
         self.routing_thread = None
 
+        self.position_visible = BooleanVar(value=False)
+        self.affichage_vent_couleur = BooleanVar(value=False)
+        
+        self.wind_cache = {}
+        
+        self.selection_button_default_bg = "#3498DB"  
+        self.selection_button_active_bg = "#E74C3C"  
+        
+        self.wind_display_enabled = False
+
         # Navigation Menu
         self.create_menu()
         
         # Sidebar Controls
-        self.sidebar = Frame(self.root, bg="#2C3E50", width=300)  # Augmente la largeur de la barre
+        self.sidebar = Frame(self.root, bg="#2C3E50", width=300)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
         
         # Main Content
@@ -37,6 +52,7 @@ class RoutageApp:
         self.drag_start = None
         
         self.initialize_map()
+        self.update_computer_position()
         
         # Buttons
         self.create_sidebar_buttons()
@@ -51,28 +67,61 @@ class RoutageApp:
         self.canvas.mpl_connect("motion_notify_event", self.on_left_drag)
         
         self.map_frame.bind("<Configure>", self.resize_canvas)
-    
+        
+        # Touches
+        self.ctrl_pressed = False
+        
+        self.canvas.mpl_connect("key_press_event", self.on_key_press)
+        self.canvas.mpl_connect("key_release_event", self.on_key_release)
+        
+
     def create_menu(self):
         menu_bar = Menu(self.root)
         self.root.config(menu=menu_bar)
         
         navigation_menu = Menu(menu_bar, tearoff=0)
-        navigation_menu.add_command(label="Accueil", command=self.reset_points)
-        menu_bar.add_cascade(label="Navigation", menu=navigation_menu)
+        navigation_menu.add_command(label="Accueil", command=self.reset_points, font=(("Arial", 14)))
         
-        menu_bar.add_cascade(label="Paramètres", command=self.open_param_window)
+        routage_menu = Menu(menu_bar, tearoff=0)
+        routage_menu.add_command(label="Lancer routage", command=self.execute_routing)
+        
+        affichage_menu = Menu(menu_bar, tearoff=0)
+        affichage_menu.add_checkbutton(
+            label="Position",
+            variable=self.position_visible,
+            command=self.toggle_position,  # fonction qui gère l'action à la modification
+            font=(("Arial", 14))
+        )
+        affichage_menu.add_checkbutton(
+            label="Vent coloré",
+            variable=self.affichage_vent_couleur,
+            font=(("Arial", 14))
+        )
+        
+        menu_bar.add_cascade(label = "Navigation", menu=navigation_menu, )
+        menu_bar.add_cascade(label = "Paramètres", command=self.open_param_window)
+        menu_bar.add_cascade(label = "Routage", menu = routage_menu)
+        menu_bar.add_cascade(label = "Affichage", menu = affichage_menu)
     
     def create_sidebar_buttons(self):
-        self.wind_hour_var = tk.StringVar()
-        tk.Label(self.sidebar, text="Heure du vent:", font=("Arial", 14, "bold"), fg="white", bg="#2C3E50").pack(pady=10, padx=20, fill=tk.X)
-        self.wind_hour_entry = tk.Entry(self.sidebar, textvariable=self.wind_hour_var, font=("Arial", 14))
-        self.wind_hour_entry.pack(pady=10, padx=20, fill=tk.X)
+        # Étiquette et slider pour choisir l'heure du vent
+        self.wind_value_label = tk.Label(self.sidebar, text="Heure du vent: 0", font=("Arial", 14, "bold"), fg="white", bg="#2C3E50")
+        self.wind_value_label.pack(pady=10, padx=20, fill=tk.X)
 
-        # Agrandir les boutons avec du padding et une plus grande police
-        button_config = {"font": ("Arial", 14, "bold"), "bg": "#3498DB", "fg": "white", "height": 2, "width": 20}
+        self.wind_slider = tk.Scale(self.sidebar, from_=0, to=23, orient=tk.HORIZONTAL, command=self.update_wind_value, font=("Arial", 12))
+        self.wind_slider.pack(pady=10, padx=20, fill=tk.X)
 
-        tk.Button(self.sidebar, text="Afficher Vent", command=self.display_wind, **button_config).pack(pady=10, padx=20)
-        tk.Button(self.sidebar, text="Sélectionner Points", command=self.enable_point_selection, **button_config).pack(pady=10, padx=20)
+        # Configuration commune pour les boutons
+        button_config = {"font": ("Arial", 14, "bold"), "bg": self.selection_button_default_bg, "fg": "white", "height": 2, "width": 20}
+
+        # Bouton toggle pour l'affichage du vent
+        self.wind_button = tk.Button(self.sidebar, text="Afficher Vent", command=self.toggle_wind_display, **button_config)
+        self.wind_button.pack(pady=10, padx=20)
+
+        # Bouton pour la sélection des points (reste inchangé)
+        self.selection_button = tk.Button(self.sidebar, text="Sélectionner Points", command=self.toggle_point_selection, **button_config)
+        self.selection_button.pack(pady=10, padx=20)
+
         tk.Button(self.sidebar, text="Lancer Routage", command=self.execute_routing, **button_config).pack(pady=10, padx=20)
         tk.Button(self.sidebar, text="Réinitialiser", command=self.reset_points, **button_config).pack(pady=10, padx=20)
         tk.Button(self.sidebar, text="Quitter", command=self.root.quit, **{**button_config, "bg": "#E74C3C"}).pack(pady=10, padx=20)
@@ -84,17 +133,13 @@ class RoutageApp:
         self.ax.add_feature(cfeature.BORDERS.with_scale("10m"), linestyle=":")
         self.ax.add_feature(cfeature.LAND, facecolor="lightgray")
         self.ax.add_feature(cfeature.OCEAN, facecolor="lightblue")
-        # On ne fait plus : self.fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
         self.canvas.draw_idle()
-
     
     def resize_canvas(self, event):
-        # Dimensions disponibles dans le cadre de la carte
         available_width = event.width
         available_height = event.height
         container_ratio = available_width / available_height
 
-        # On récupère l'étendue de référence de la carte
         xmin, xmax, ymin, ymax = p.loc_nav
         map_ratio = (xmax - xmin) / (ymax - ymin)
 
@@ -127,27 +172,37 @@ class RoutageApp:
         self.ax.set_position([0, 0, 1, 1])
         self.canvas.draw_idle()
 
-
-    
     def zoom(self, event):
+        # Ne zoomer que si la touche Ctrl est enfoncée
+        if not self.ctrl_pressed:
+            return
+
         xlim = self.ax.get_xlim()
         ylim = self.ax.get_ylim()
         factor = 1 / self.zoom_factor if event.step > 0 else self.zoom_factor
         self.ax.set_xlim([event.xdata - (event.xdata - xlim[0]) * factor,
-                          event.xdata + (xlim[1] - event.xdata) * factor])
+                        event.xdata + (xlim[1] - event.xdata) * factor])
         self.ax.set_ylim([event.ydata - (event.ydata - ylim[0]) * factor,
-                          event.ydata + (ylim[1] - event.ydata) * factor])
+                        event.ydata + (ylim[1] - event.ydata) * factor])
         self.canvas.draw_idle()
-    
+        
+    def on_key_press(self, event):
+        if event.key == "control":
+            self.ctrl_pressed = True
+            print("Ctrl appuyé")
+
+    def on_key_release(self, event):
+        if event.key == "control":
+            self.ctrl_pressed = False
+            # print("Ctrl relâché")
+
     def on_left_press(self, event):
-        if event.button == 1:  # Clic gauche pour déplacer
+        if event.button == 1 :#and self.ctrl_pressed:
             self.drag_start = (event.x, event.y, list(self.ax.get_xlim()), list(self.ax.get_ylim()))
-    
-    def on_release(self, event):
-        self.drag_start = None
-    
+            print("Début du drag")
+
     def on_left_drag(self, event):
-        if self.drag_start is None or event.x is None or event.y is None:
+        if self.drag_start is None : #or not self.ctrl_pressed:
             return
 
         dx = (self.drag_start[0] - event.x) / (self.canvas.get_tk_widget().winfo_width() / (self.drag_start[2][1] - self.drag_start[2][0]))
@@ -158,49 +213,139 @@ class RoutageApp:
         
         self.canvas.draw_idle()
 
+    def on_release(self, event):
+        self.drag_start = None
+
+    def toggle_wind_display(self):
+        """Active/désactive l'affichage du vent en mode toggle."""
+        if not self.wind_display_enabled:
+            self.wind_display_enabled = True
+            self.wind_button.config(bg=self.selection_button_active_bg)
+            # Affiche immédiatement le vent avec la valeur actuelle du slider
+            self.display_wind()
+        else:
+            self.wind_display_enabled = False
+            self.wind_button.config(bg=self.selection_button_default_bg)
+            # Efface l'affichage du vent tout en conservant le fond de carte
+            self.clear_wind_display()
+        self.canvas.draw_idle()
+
+    def update_wind_value(self, value):
+        """Mise à jour de l'étiquette avec la valeur actuelle du slider et actualisation du vent si activé."""
+        self.wind_value_label.config(text=f"Heure du vent: {value}")
+        # Si le toggle est activé, actualiser l'affichage du vent
+        if self.wind_display_enabled:
+            self.display_wind()
+
     def display_wind(self):
         try:
-            hour = int(self.wind_hour_var.get())
-            # Ajoute le vent sans réinitialiser la carte
-            rv.plot_wind_tk(self.ax, self.canvas, p.loc_nav, step_indices=[hour])
+            hour = int(self.wind_slider.get())
+            # Sauvegarder l'étendue actuelle pour conserver le cadrage
+            current_xlim = self.ax.get_xlim()
+            current_ylim = self.ax.get_ylim()
+
+            # On vide uniquement les anciennes couches de vent (par exemple, on peut redessiner la carte)
+            self.ax.cla()
+            self.initialize_map()
+            self.ax.set_xlim(current_xlim)
+            self.ax.set_ylim(current_ylim)
+
+            # (Optionnel) Redessiner les points sélectionnés, s'ils existent
+            for pt in p.points:
+                lat, lon = pt
+                color = "green" if p.points.index(pt) == 0 else "red" if p.points.index(pt) == 1 else "black"
+                self.ax.scatter(lon, lat, color=color, marker="x", s=100, transform=ccrs.PlateCarree())
+
+            # Afficher le vent pour l'heure choisie
+            import Routage_Vent as rv  # Assurez-vous que ce module est bien importé
+            rv.plot_wind_tk(self.ax, self.canvas, p.loc_nav, step_indices=[hour], couleur=self.affichage_vent_couleur.get())
             self.canvas.draw_idle()
         except ValueError:
-            messagebox.showwarning("Erreur", "Veuillez entrer une heure valide.")
+            messagebox.showwarning("Erreur", "La valeur du slider est invalide.")
 
+    def clear_wind_display(self):
+        """Efface l'affichage du vent sans réinitialiser l'ensemble de la carte."""
+        current_xlim = self.ax.get_xlim()
+        current_ylim = self.ax.get_ylim()
+        self.ax.cla()
+        self.initialize_map()
+        self.ax.set_xlim(current_xlim)
+        self.ax.set_ylim(current_ylim)
+        # (Optionnel) Redessiner les points déjà sélectionnés
+        for pt in p.points:
+            lat, lon = pt
+            color = "green" if p.points.index(pt) == 0 else "red" if p.points.index(pt) == 1 else "black"
+            self.ax.scatter(lon, lat, color=color, marker="x", s=100, transform=ccrs.PlateCarree())
+        self.canvas.draw_idle()
 
     def enable_point_selection(self):
         self.point_selection_enabled = True
-        self.canvas.get_tk_widget().bind("<Button-1>", self.on_click)
-    
+        self.click_id = self.canvas.mpl_connect("button_press_event", self.on_click)
+
+    def toggle_point_selection(self):
+        # Si la sélection n'est pas activée, on l'active et on change la couleur du bouton
+        if not self.point_selection_enabled:
+            self.point_selection_enabled = True
+            self.selection_button.config(bg=self.selection_button_active_bg)
+            self.click_id = self.canvas.mpl_connect("button_press_event", self.on_click)
+        else:
+            # Si déjà activée, on la désactive, on retire le binding et on remet le bouton à sa couleur initiale
+            self.point_selection_enabled = False
+            if self.click_id is not None:
+                self.canvas.mpl_disconnect(self.click_id)
+                self.click_id = None
+            self.selection_button.config(bg=self.selection_button_default_bg)
+        self.canvas.draw_idle()
+
     def reset_points(self):
         if messagebox.askyesno("Confirmation", "Réinitialiser tous les points ?"):
             p.points = []
+            # Capturer l'étendue actuelle de la carte pour la conserver
+            current_extent = self.ax.get_extent(crs=ccrs.PlateCarree())
+            # Effacer l'axe
             self.ax.clear()
+            # Réinitialiser la carte sans modifier son espace occupé
             self.initialize_map()
+            # Restaurer l'étendue capturée
+            self.ax.set_extent(current_extent, crs=ccrs.PlateCarree())
+            # Réafficher le marqueur de position (en bleu)
+            self.update_computer_position()
             self.canvas.draw_idle()
-    
+
     def on_click(self, event):
         if not self.point_selection_enabled:
             return
-        
-        x, y = self.ax.transData.inverted().transform((event.x, self.canvas.get_tk_widget().winfo_height() - event.y))
-        p.points.append((y, x))
-        color = "green" if len(p.points) == 1 else "red" if len(p.points) == 2 else "black"
-        self.ax.scatter(x, y, color=color, marker="x", s=100, transform=ccrs.PlateCarree())
+        data_coord = self.ax.transData.inverted().transform((event.x, event.y))
+        lon, lat = data_coord
+        p.points.append((lat, lon))
+        artist = self.ax.scatter(lon, lat,
+                                color="green" if len(p.points) == 1 else "red" if len(p.points) == 2 else "black",
+                                marker="x", s=100, transform=ccrs.PlateCarree(),
+                                label="Point sélectionné")
+        # Initialiser la liste si nécessaire et enregistrer l'objet
+        if not hasattr(self, "selection_artists"):
+            self.selection_artists = []
+        self.selection_artists.append(artist)
         self.canvas.draw_idle()
-    
+
+
     def execute_routing(self):
+        if self.point_selection_enabled:
+            self.toggle_point_selection()
         if len(p.points) < 2:
             messagebox.showwarning("Erreur", "Veuillez sélectionner au moins deux points.")
             return
-        
+        # Désactiver la sélection de points en déconnectant le binding
+        self.point_selection_enabled = False
+        if hasattr(self, "click_id"):
+            self.canvas.mpl_disconnect(self.click_id)
         threading.Thread(target=self.run_routing, daemon=True).start()
-    
+
     def run_routing(self):
         rc.itere_jusqua_dans_enveloppe_tk(p.points, self.ax, self.canvas)
         self.canvas.draw_idle()
-        self.controller.root.update_idletasks()
-    
+        self.root.update_idletasks()  # Remplace self.controller.root.update_idletasks()
+
     def open_param_window(self):
         param_window = Toplevel(self.root)
         param_window.title("Modifier les paramètres")
@@ -222,223 +367,64 @@ class RoutageApp:
         for param, widget in self.entries.items():
             setattr(p, param, float(widget.get()))
         messagebox.showinfo("Succès", "Paramètres mis à jour.")
+    
+    def update_computer_position(self):
+        # Si l'affichage de la position est désactivé, on ne met pas à jour le marqueur
+        if not self.position_visible.get():
+            # On peut aussi supprimer le marqueur s'il existe
+            if hasattr(self, "computer_marker"):
+                try:
+                    self.computer_marker.remove()
+                except Exception as e:
+                    print("Erreur lors de la suppression du marqueur:", e)
+            self.canvas.draw_idle()
+            # Planifier la prochaine vérification sans recréer le marqueur
+            self.root.after(5000, self.update_computer_position)
+            return
 
-
-class AccueilPage(Frame):
-    def __init__(self, parent, controller):
-        Frame.__init__(self, parent, bg="#2C3E50")
-        self.controller = controller
-        
-        label = tk.Label(self, text="Bienvenue dans le logiciel de routage", font=("Arial", 20, "bold"), fg="white", bg="#2C3E50")
-        label.pack(pady=30)
-        
-        btn_routage = tk.Button(self, text="Routage", font=("Arial", 18, "bold"), bg="#3498DB", fg="white", relief="flat", width=25, height=4,
-                                padx=15, pady=15, command=lambda: controller.show_frame("RoutagePage"))
-        btn_routage.pack(pady=20)
-        
-        btn_exit = tk.Button(self, text="Quitter", font=("Arial", 18, "bold"), bg="#E74C3C", fg="white", relief="flat", width=25, height=4,
-                             padx=15, pady=15, command=controller.root.quit)
-        btn_exit.pack(pady=20)
-
-class RoutagePage(Frame):
-    def __init__(self, parent, controller):
-        Frame.__init__(self, parent)
-        self.controller = controller
-        
-        # Création du menu
-        self.create_menu()
-        
-        # Conteneur principal pour la carte
-        self.map_frame = Frame(self)
-        self.sidebar.pack_propagate(False)
-        self.map_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Création de la figure Matplotlib pour Tkinter
-        self.fig, self.ax = plt.subplots(figsize=(12, 8), dpi = 100, subplot_kw={"projection": ccrs.PlateCarree()})
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.map_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        # Initialisation de la carte
-        self.initialize_map()
-
-        # Gestion des points sélectionnés par l’utilisateur
-        p.points = []
-        self.point_selection_enabled = False
-
-        # Boutons d'action
-        self.btn_stop_selection = tk.Button(self, text="Arrêter Sélection", font=("Arial", 14), bg="red", fg="white", command=self.stop_selection)
-        self.btn_reset = tk.Button(self, text="Réinitialiser", font=("Arial", 14), bg="orange", fg="white", command=self.reset_points)
-        self.btn_execute = tk.Button(self, text="Lancer le Routage", font=("Arial", 14), bg="darkgreen", fg="white", command=self.execute_routing, state=tk.DISABLED)
-        self.btn_execute.pack(side=tk.TOP, anchor="ne", padx=10, pady=10)
-
-        # Bind des événements
-        self.map_frame.bind("<Configure>", self.resize_canvas)
-
-        
-    def init_map(self):
-        """Initialisation de la carte"""
-        self.ax.set_extent(p.loc_nav, crs=ccrs.PlateCarree())
-        self.ax.add_feature(cfeature.COASTLINE.with_scale("10m"), linewidth=1)
-        self.ax.add_feature(cfeature.BORDERS.with_scale("10m"), linestyle=":")
-        self.ax.add_feature(cfeature.LAND, facecolor="lightgray")
-        self.ax.add_feature(cfeature.OCEAN, facecolor="lightblue")
-        self.canvas.draw_idle()
-        
-    def create_menu(self):
-        menu_bar = Menu(self.controller.root)
-        self.controller.root.config(menu=menu_bar)
-
-        navigation_menu = Menu(menu_bar, tearoff=0)
-        navigation_menu.add_command(label="Accueil", command=lambda: self.controller.show_frame("AccueilPage"))
-        menu_bar.add_cascade(label="Navigation", menu=navigation_menu)
-        
-        actions_menu = Menu(menu_bar, tearoff=0)
-        actions_menu.add_command(label="Sélectionner Points", command=self.enable_point_selection)
-        actions_menu.add_command(label="Lancer Routage", command=self.execute_routing)
-        menu_bar.add_cascade(label="Actions", menu=actions_menu)
-        
-        menu_bar.add_cascade(label="Paramètres", command=self.open_param_window)
-        
-    def open_param_window(self):
-        param_window = Toplevel(self.controller.root)
-        param_window.title("Modifier les paramètres")
-        param_window.geometry("500x700")
-        
-        params = {
-            "pas_temporel": p.pas_temporel,
-            "pas_angle": p.pas_angle,
-            "heure_initiale": p.heure_initiale,
-            "date_initiale": p.date_initiale,
-            "tolerance": p.tolerance,
-            "rayon_elemination": p.rayon_elemination,
-            "skip": p.skip,
-            "skip_vect_vent": p.skip_vect_vent,
-            "tolerance_arrivée": p.tolerance_arrivée,
-            "land_contact": p.land_contact,
-            "enregistrement": p.enregistrement,
-            "live": p.live,
-            "print_données": p.print_données,
-            "data_route": p.data_route,
-            "enveloppe": p.enveloppe
-        }
-        
-        self.entries = {}
-        row = 0
-        for param, value in params.items():
-            Label(param_window, text=param, font=("Arial", 16)).grid(row=row, column=0, padx=20, pady=10, sticky='w')
-            
-            if isinstance(value, bool):
-                var = BooleanVar(value=value)
-                chk = Checkbutton(param_window, variable=var, font=("Arial", 16), padx=20, pady=10, highlightthickness=5)
-                chk.grid(row=row, column=1, padx=20, pady=10)
-                self.entries[param] = var
+        def get_current_location():
+            g = geocoder.ip('me')
+            if g.ok:
+                return g.latlng  # renvoie [latitude, longitude]
             else:
-                frame = Frame(param_window)
-                frame.grid(row=row, column=1, padx=10, pady=10)
-                btn_minus = Button(frame, text="-", font=("Arial", 14), command=lambda p=param: self.adjust_param(p, -0.1))
-                btn_minus.pack(side=tk.LEFT)
-                entry = Entry(frame, font=("Arial", 16), width=8)
-                entry.insert(0, str(value))
-                entry.pack(side=tk.LEFT)
-                btn_plus = Button(frame, text="+", font=("Arial", 14), command=lambda p=param: self.adjust_param(p, 0.1))
-                btn_plus.pack(side=tk.LEFT)
-                self.entries[param] = entry
-            
-            row += 1
-        
-        Button(param_window, text="Enregistrer", font=("Arial", 16), command=self.save_params).grid(row=row, columnspan=2, pady=20)
-    
-    def adjust_param(self, param, delta):
-        entry = self.entries[param]
-        try:
-            new_value = float(entry.get()) + delta
-            entry.delete(0, tk.END)
-            entry.insert(0, str(new_value))
-        except ValueError:
-            pass
-    
-    def save_params(self):
-        for param, widget in self.entries.items():
-            new_value = widget.get() if isinstance(widget, Entry) else widget.get()
-            setattr(p, param, type(getattr(p, param))(new_value))      
-        
-    def stop_selection(self):
-        self.point_selection_enabled = False
-        self.btn_stop_selection.pack_forget()
-        self.btn_reset.pack_forget()
-        self.update_routage_button()
-    
-    def reset_points(self):
-        p.points = []
-        self.ax.clear()
-        self.initialize_map()
-        self.update_routage_button()
-        print("Tous les points ont été réinitialisés.")
+                return None
 
-    def enable_point_selection(self):
-        self.point_selection_enabled = True
-        self.canvas.get_tk_widget().bind("<Button-1>", self.on_click)
-        self.btn_stop_selection.pack(side=tk.TOP, anchor="ne", padx=10, pady=10)
-        self.btn_reset.pack(side=tk.TOP, anchor="ne", padx=10, pady=10)
-
-    def initialize_map(self):
-        """Initialise la carte avec Cartopy."""
-        self.ax.set_extent(p.loc_nav, crs=ccrs.PlateCarree())
-        self.ax.add_feature(cfeature.COASTLINE.with_scale("10m"), linewidth=1)
-        self.ax.add_feature(cfeature.BORDERS.with_scale("10m"), linestyle=":")
-        self.ax.add_feature(cfeature.LAND, facecolor="lightgray")
-        self.ax.add_feature(cfeature.OCEAN, facecolor="lightblue")
-        self.canvas.draw_idle()
+        loc = get_current_location()
+        if loc is not None:
+            lat, lon = loc
+            # Supprimez le marqueur précédent s'il existe déjà
+            if hasattr(self, "computer_marker"):
+                try:
+                    self.computer_marker.remove()
+                except Exception as e:
+                    pass
+            # Ajoutez un marqueur bleu pour représenter la position de l'ordinateur
+            self.computer_marker = self.ax.scatter(
+                lon, lat,
+                color="blue", marker="o", s=100,
+                transform=ccrs.PlateCarree(),
+                label="Ma position"
+            )
+            # On peut mettre à jour la légende si besoin
+            self.ax.legend()
+            self.canvas.draw_idle()
+        # Actualise la position toutes les 5 secondes
+        self.root.after(5000, self.update_computer_position)
     
-    def resize_canvas(self, event):
-        """Redimensionne la carte en fonction de la fenêtre."""
-        width, height = event.width, event.height
-        self.fig.set_size_inches(width / self.canvas.figure.dpi, height / self.canvas.figure.dpi, forward=True)
-        self.canvas.draw_idle()
-
-    def stop_routing(self):
-        """Arrête le routage et réinitialise la position initiale."""
-        print("Arrêt du routage et retour à la position initiale.")
-        p.points = []
-        self.ax.clear()
-        self.initialize_map()
-        self.canvas.draw_idle()    
-    
-    def on_click(self, event):
-        if not self.point_selection_enabled:
-            return
-        
-        x, y = self.ax.transData.inverted().transform((event.x, self.canvas.get_tk_widget().winfo_height() - event.y))
-        
-        p.points.append((y, x))
-        print(f"Point sélectionné : {y:.2f}N, {x:.2f}E")
-        
-        color = "green" if len(p.points) == 1 else "red" if len(p.points) == 2 else "black"
-        self.ax.scatter(x, y, color=color, marker="x", s=100, transform=ccrs.PlateCarree())
-        self.canvas.draw_idle()
-        self.update_routage_button()
-    
-    def update_routage_button(self):
-        if len(p.points) >= 2:
-            self.btn_execute.config(state=tk.NORMAL, bg="lightgreen")
+    def toggle_position(self):
+        if self.position_visible.get():
+            print("Affichage de la position activé")
+            self.update_computer_position() 
         else:
-            self.btn_execute.config(state=tk.DISABLED, bg="darkgreen")   
-
-    def execute_routing(self):
-        """Exécute le routage et met à jour l'affichage dans Tkinter."""
-        if len(p.points) < 2:
-            print("Veuillez sélectionner au moins deux points pour exécuter le routage.")
-            return
-
-        print("Lancement du routage...")
-        self.controller.root.after(100, self.run_routing) 
-        
-    def run_routing(self):
-        """Exécute le routage en arrière-plan sans bloquer Tkinter"""
-        rc.itere_jusqua_dans_enveloppe_tk(p.points, self.ax, self.canvas)
-        self.canvas.draw_idle()
-        self.controller.root.update_idletasks()
-               
+            print("Affichage de la position désactivé")
+            if hasattr(self, "computer_marker"):
+                try:
+                    self.computer_marker.remove()
+                except Exception as e:
+                    print("Erreur lors de la suppression du marqueur:", e)
+                self.canvas.draw_idle()
+                
+    
 
         
 if __name__ == "__main__":

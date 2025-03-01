@@ -52,7 +52,7 @@ rayon_elemination = 0.05
 skip = 5
 skip_vect_vent = 5
 
-tolerance_arrivée = 0.1
+tolerance_arrivée = 0.3
 
 land_contact = False
 

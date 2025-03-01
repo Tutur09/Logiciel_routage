@@ -466,7 +466,7 @@ file_path = p.vent
 
 if p.type == 'grib':
     ds = xr.open_dataset(file_path, engine='cfgrib')
-    
+    p.nb_step = ds.sizes["step"]
     if p.new:
         u10_values = [ds.u10.isel(step=int(step)).values for step in range(ds.dims['step'])]
         v10_values = [ds.v10.isel(step=int(step)).values for step in range(ds.dims['step'])]
@@ -495,4 +495,4 @@ else:
 if __name__ == '__main__':
     ds = xr.open_dataset(file_path, engine='cfgrib')
     print(ds)
-    plot_grib([0], skip = 1, skip_vect_vent = 25)
+    # plot_grib([0], skip = 1, skip_vect_vent = 25)

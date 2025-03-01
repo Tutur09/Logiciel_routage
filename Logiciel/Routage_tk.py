@@ -1,12 +1,13 @@
 import tkinter as tk
 from tkinter import Frame, Menu, Toplevel, Label, Entry, Button, BooleanVar, Checkbutton, messagebox
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import Routage_Paramètres as p
 import Routage_calcul as rc
-import Routage_Vent as rv
 import threading
 import geocoder
 
@@ -108,7 +109,7 @@ class RoutageApp:
         self.wind_value_label = tk.Label(self.sidebar, text="Heure du vent: 0", font=("Arial", 14, "bold"), fg="white", bg="#2C3E50")
         self.wind_value_label.pack(pady=10, padx=20, fill=tk.X)
 
-        self.wind_slider = tk.Scale(self.sidebar, from_=0, to=23, orient=tk.HORIZONTAL, command=self.update_wind_value, font=("Arial", 12))
+        self.wind_slider = tk.Scale(self.sidebar, from_=0, to=p.nb_step - 1, orient=tk.HORIZONTAL, command=self.update_wind_value, font=("Arial", 12))
         self.wind_slider.pack(pady=10, padx=20, fill=tk.X)
 
         # Configuration commune pour les boutons
@@ -189,17 +190,14 @@ class RoutageApp:
     def on_key_press(self, event):
         if event.key == "control":
             self.ctrl_pressed = True
-            print("Ctrl appuyé")
 
     def on_key_release(self, event):
         if event.key == "control":
             self.ctrl_pressed = False
-            # print("Ctrl relâché")
 
     def on_left_press(self, event):
         if event.button == 1 :#and self.ctrl_pressed:
             self.drag_start = (event.x, event.y, list(self.ax.get_xlim()), list(self.ax.get_ylim()))
-            print("Début du drag")
 
     def on_left_drag(self, event):
         if self.drag_start is None : #or not self.ctrl_pressed:
@@ -217,66 +215,121 @@ class RoutageApp:
         self.drag_start = None
 
     def toggle_wind_display(self):
-        """Active/désactive l'affichage du vent en mode toggle."""
         if not self.wind_display_enabled:
             self.wind_display_enabled = True
             self.wind_button.config(bg=self.selection_button_active_bg)
-            # Affiche immédiatement le vent avec la valeur actuelle du slider
-            self.display_wind()
+            self.display_wind()  # Affichage immédiat avec la valeur actuelle du slider
         else:
             self.wind_display_enabled = False
             self.wind_button.config(bg=self.selection_button_default_bg)
-            # Efface l'affichage du vent tout en conservant le fond de carte
             self.clear_wind_display()
         self.canvas.draw_idle()
 
     def update_wind_value(self, value):
-        """Mise à jour de l'étiquette avec la valeur actuelle du slider et actualisation du vent si activé."""
         self.wind_value_label.config(text=f"Heure du vent: {value}")
-        # Si le toggle est activé, actualiser l'affichage du vent
         if self.wind_display_enabled:
             self.display_wind()
+
+
+    def compute_wind_display_data(self, hour):
+        """
+        Calcule et renvoie les données de vent pour l'heure donnée.
+        Ces données incluent les sous-échantillonnages pour le pcolormesh et les barbs.
+        """
+        import Routage_Vent as rv  # Utilise le module de vent pour accéder aux données
+        if p.type == "grib":
+            ds = rv.ds  # On suppose que ds est déjà ouvert dans le module
+            u10_specific = ds['u10'].isel(step=int(hour)).values
+            v10_specific = ds['v10'].isel(step=int(hour)).values
+            latitudes = ds['latitude'].values
+            longitudes = ds['longitude'].values
+        elif p.type == "excel":
+            u10_specific = rv.u_xl[0]
+            v10_specific = rv.v_xl[0]
+            latitudes = rv.lat_xl
+            longitudes = rv.lon_xl
+        else:
+            raise ValueError("Type de données non supporté.")
+
+        skip = p.skip
+        skip_vect = p.skip_vect_vent
+
+        # Sous-échantillonnage pour la carte
+        latitudes_sub = latitudes[::skip]
+        longitudes_sub = longitudes[::skip]
+        u10_sub = u10_specific[::skip, ::skip]
+        v10_sub = v10_specific[::skip, ::skip]
+        wind_speed = 1.852 * np.sqrt(u10_sub**2 + v10_sub**2)
+
+        # Sous-échantillonnage pour les barbs
+        latitudes_barb = latitudes[::skip_vect]
+        longitudes_barb = longitudes[::skip_vect]
+        u10_barb = u10_specific[::skip_vect, ::skip_vect]
+        v10_barb = v10_specific[::skip_vect, ::skip_vect]
+
+        return {
+            "latitudes": longitudes_sub,  # Attention : pcolormesh attend souvent des coordonnées X = longitudes, Y = latitudes
+            "longitudes": latitudes_sub,
+            "wind_speed": wind_speed,
+            "latitudes_barb": latitudes_barb,
+            "longitudes_barb": longitudes_barb,
+            "u10_barb": u10_barb,
+            "v10_barb": v10_barb,
+        }
 
     def display_wind(self):
         try:
             hour = int(self.wind_slider.get())
-            # Sauvegarder l'étendue actuelle pour conserver le cadrage
             current_xlim = self.ax.get_xlim()
             current_ylim = self.ax.get_ylim()
-
-            # On vide uniquement les anciennes couches de vent (par exemple, on peut redessiner la carte)
             self.ax.cla()
             self.initialize_map()
             self.ax.set_xlim(current_xlim)
             self.ax.set_ylim(current_ylim)
 
-            # (Optionnel) Redessiner les points sélectionnés, s'ils existent
+            # (Optionnel) Redessiner les points sélectionnés
             for pt in p.points:
                 lat, lon = pt
                 color = "green" if p.points.index(pt) == 0 else "red" if p.points.index(pt) == 1 else "black"
                 self.ax.scatter(lon, lat, color=color, marker="x", s=100, transform=ccrs.PlateCarree())
 
-            # Afficher le vent pour l'heure choisie
-            import Routage_Vent as rv  # Assurez-vous que ce module est bien importé
-            rv.plot_wind_tk(self.ax, self.canvas, p.loc_nav, step_indices=[hour], couleur=self.affichage_vent_couleur.get())
+            # Utiliser le cache pour éviter de recalculer
+            if hour not in self.wind_cache:
+                self.wind_cache[hour] = self.compute_wind_display_data(hour)
+            data = self.wind_cache[hour]
+
+            # Tracer le pcolormesh pour l'intensité du vent
+            if self.affichage_vent_couleur.get():    
+                cmap = mcolors.ListedColormap(p.colors_windy)
+                norm = mcolors.BoundaryNorm(p.wind_speed_bins, cmap.N)
+                self.ax.pcolormesh(data["latitudes"], data["longitudes"], data["wind_speed"],
+                                transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto')
+
+            # Tracer les barbs pour la direction
+            self.ax.barbs(data["longitudes_barb"], data["latitudes_barb"],
+                          1.852 * data["u10_barb"], 1.852 * data["v10_barb"],
+                          length=5, pivot="middle", barbcolor="black", linewidth=0.6,
+                          transform=ccrs.PlateCarree())
+
             self.canvas.draw_idle()
         except ValueError:
             messagebox.showwarning("Erreur", "La valeur du slider est invalide.")
 
     def clear_wind_display(self):
-        """Efface l'affichage du vent sans réinitialiser l'ensemble de la carte."""
         current_xlim = self.ax.get_xlim()
         current_ylim = self.ax.get_ylim()
         self.ax.cla()
         self.initialize_map()
         self.ax.set_xlim(current_xlim)
         self.ax.set_ylim(current_ylim)
-        # (Optionnel) Redessiner les points déjà sélectionnés
         for pt in p.points:
             lat, lon = pt
             color = "green" if p.points.index(pt) == 0 else "red" if p.points.index(pt) == 1 else "black"
             self.ax.scatter(lon, lat, color=color, marker="x", s=100, transform=ccrs.PlateCarree())
         self.canvas.draw_idle()
+
+
+
 
     def enable_point_selection(self):
         self.point_selection_enabled = True
@@ -351,22 +404,56 @@ class RoutageApp:
         param_window.title("Modifier les paramètres")
         param_window.geometry("400x500")
         
-        params = {"pas_temporel": p.pas_temporel, "pas_angle": p.pas_angle, "tolerance": p.tolerance}
-        self.entries = {}
+        # Dictionnaire incluant des paramètres numériques et booléens
+        params = {
+            "pas_temporel": p.pas_temporel, 
+            "pas_angle": p.pas_angle, 
+            "rayon élimination points": p.rayon_elemination,
+            "Tolérance arrivée": p.tolerance_arrivée,
+            "affichage des enveloppes": p.enveloppe,
+            "Contact terrestre": p.land_contact
+        }
         
-        for row, (param, value) in enumerate(params.items()):
-            Label(param_window, text=param).grid(row=row, column=0, padx=10, pady=5)
-            entry = Entry(param_window)
-            entry.insert(0, str(value))
-            entry.grid(row=row, column=1, padx=10, pady=5)
-            self.entries[param] = entry
+        self.entries = {}      # Pour les Entry
+        self.bool_vars = {}    # Pour les Checkbutton associés aux booléens
+
+        row = 0
+        for param, value in params.items():
+            Label(param_window, text=param, font=("Arial", 14)).grid(row=row, column=0, padx=10, pady=5)
+            if isinstance(value, bool):
+                # Création d'un Checkbutton pour les booléens
+                var = tk.BooleanVar(value=value)
+                chk = tk.Checkbutton(param_window, variable=var, font=("Arial", 14))
+                chk.grid(row=row, column=1, padx=10, pady=5)
+                self.bool_vars[param] = var
+            else:
+                # Création d'un Entry pour les autres types (numériques)
+                entry = Entry(param_window, font=("Arial", 14), width=15)
+                entry.insert(0, str(value))
+                entry.grid(row=row, column=1, padx=10, pady=5)
+                self.entries[param] = entry
+            row += 1
         
-        Button(param_window, text="Enregistrer", command=self.save_params).grid(row=row+1, columnspan=2, pady=10)
-    
+        Button(param_window, text="Enregistrer", 
+            command=lambda: (self.save_params(), param_window.destroy()),
+            font=("Arial", 14)).grid(row=row, columnspan=2, pady=10)
+
     def save_params(self):
-        for param, widget in self.entries.items():
-            setattr(p, param, float(widget.get()))
-        messagebox.showinfo("Succès", "Paramètres mis à jour.")
+        try:
+            # Pour les paramètres numériques
+            for param, widget in self.entries.items():
+                value = widget.get()
+                if param == "pas_angle":
+                    setattr(p, param, int(float(value)))
+                else:
+                    setattr(p, param, float(value))
+            # Pour les paramètres booléens
+            for param, var in self.bool_vars.items():
+                setattr(p, param, var.get())
+        except ValueError as e:
+            messagebox.showerror("Erreur", f"Valeur invalide : {e}")
+
+
     
     def update_computer_position(self):
         # Si l'affichage de la position est désactivé, on ne met pas à jour le marqueur

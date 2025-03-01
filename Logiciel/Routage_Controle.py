@@ -15,4 +15,6 @@ p.points = copy(points)
 
 p.enable_prints()
 
-rc.itere_jusqua_dans_enveloppe(points)
+chemin = rc.itere_jusqua_dans_enveloppe(points)
+
+print(chemin)

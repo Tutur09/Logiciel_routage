@@ -11,14 +11,14 @@ from datetime import datetime, timedelta
 # hd = (61.24779029169383, -0.7117176270096285)
 
 "BRETAGNE"
-# position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
-# bg = (46, -7)
-# hd = (49, -1.5)
+position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
+bg = (46, -7)
+hd = (49, -1.5)
 
 "GOLF DE GASCOGNE"
-position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
-bg = (43, -9.5)
-hd = (48.9, -0.9)
+# position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
+# bg = (43, -9.5)
+# hd = (48.9, -0.9)
 
 "MEDITERRANNEE"
 # position_initiale, position_finale = ((4.449957059919272, 43.03482228137273), (7.750689156750921, 39.763423641448114))
@@ -40,11 +40,12 @@ loc_nav = [bg[1], hd[1], bg[0], hd[0]]
 
 points = [position_initiale, position_finale]
 
-pas_temporel = 1
+pas_temporel = 0.5
 pas_angle = 10
 
-heure_initiale = 8
-date_initiale = "0226" # MMJJ
+
+heure_initiale = 12
+date_initiale = "0301" # MMJJ
 
 tolerance = 0.0001
 rayon_elemination = 0.05
@@ -57,7 +58,7 @@ tolerance_arrivée = 0.3
 land_contact = False
 
 enregistrement = False
-enregistrement_live = True
+enregistrement_live = False
 
 live = True
 print_données = True
@@ -68,8 +69,9 @@ enveloppe = True
 drapeau = True
 
 # FICHIER METEO, TERRE
-vent = r"Données_vent\METEOFRANCE_AROME_12Z_VENT_0128_.grib"
+vent = r"Données_vent\METEOCONSULT18Z_VENT_0228_Gascogne.grb"
 new = False
+nb_step = 0
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'
 

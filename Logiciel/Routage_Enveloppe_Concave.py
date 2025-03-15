@@ -2,6 +2,7 @@ import numpy as np
 from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
 from collections import defaultdict
+import random
 
 def calculate_angles(p1, p2, p3):
     # Calcul des longueurs de chaque côté
@@ -119,8 +120,6 @@ def order_boundary_points(boundary_coords):
 
     return ordered_points
 
-
-
 def enveloppe_concave(points):
     tri = Delaunay(points)
     filtered_triangles = tri.simplices
@@ -141,12 +140,41 @@ def enveloppe_concave(points):
 
     return order_boundary_points(outer_shell) if outer_shell else []
 
-if __name__ == '__main__':
-    points = [(46.012422974556095, -5.549347066718002), (46.00973725673662, -5.477764067156145), (46.00127975207347, -5.414777825334667), (46.00125201132839, -5.335018226975538), (46.003786333835805, -5.282712168887242), (46.006496461779506, -5.2022480192069604), (46.00647401032872, -5.130493790139045), (46.000961693235205, -5.0468302649814225), (46.00196243846558, -4.992227236461752), (46.01336995986486, -4.923617011461549), (46.0387633199283, -4.869041799871829), (46.06827396009881, -4.799459785691071), (46.115771812241874, -4.769769338113613), (46.1569692746202, -4.716575087588975), (46.19942164386077, -4.6804547065525375), (46.22686632596371, -4.632548014176481), (46.25311655414511, -4.583524401269348), (46.29582477801836, -4.537870294896847), (46.33493480957401, -4.485225510883122), (46.369216885664166, -4.448641792313269), (46.40913994211517, -4.397345592993551), (46.44770755575648, -4.353664451460494), (46.487700517632646, -4.251077314156284), (46.5363179957164, -4.206508353814827), (46.5563937011389, -4.144221735116406), (46.579971856094616, -4.055736973560463), (46.600711569611676, -3.9970518231438064), (46.63118205222566, -3.940818962050987), (46.66493990368807, -3.895174376464921), (46.68584842870148, -3.8490488045529023), (46.72111672104385, -3.8086246511404704), (46.76738406602876, -3.7594777810772806), (46.8021413634688, -3.715710396208164), (46.838922520499914, -3.68099444439479), (46.87146944327821, -3.6311263340555), (46.91142516717523, -3.5957372234973524), (46.95091216675025, -3.5457129755855443), (47.00455263313037, -3.492231794684204), (47.056372969813836, -3.4496126177027664), (47.0977188901994, -3.409606414767522), (47.15430726434713, -3.3689503525517326), (47.19803239199462, -3.3372964935374982), (47.237167552207104, -3.303320043970917), (47.317864655481706, -3.2509277846574958), (47.379023153346736, -3.2341153232977424), (47.43668443196822, -3.1823179437434885), (47.489412469640605, -3.1830359897855343), (47.54428288009455, -3.215250186923842), (47.570342041724516, -3.2921118550091717), (47.627286503151815, -3.293133595526968), (47.66278879655464, -3.334500075492278), (47.685299386199546, -3.386424575974929), (47.720382099960226, -3.4452246944407285)]#, (48.058675579234404, -3.601416876569087)]#, (48.18070480290864, -3.5244800704583144)]
-
-    points2 = enveloppe_concave(np.array(points))
-
-    plt.figure(figsize=(10, 8))
-    plt.plot(*zip(*points), 'o', label='Points')
-    plt.plot(*zip(*points2), 'r-', label='Enveloppe Concave')
+def concave_random(n):
+    points = [(random.randint(0, 100), random.randint(0, 100)) for _ in range(n)]
+    env_concave = enveloppe_concave(np.array(points))
+    env_concave.append(env_concave[0])
+    fig, ax = plt.subplots()
+    ax.plot(*zip(points), marker = 'o', color = 'b')
+    ax.plot(*zip(*env_concave), marker = 'o', color = 'r')
     plt.show()
+
+def plot_triangles(points, triangles, concave_hull=None):
+    """
+    Affiche la triangulation de Delaunay et l'enveloppe concave (si fournie).
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # Tracé des triangles
+    for tri in triangles:
+        pts = points[tri]  # S'assurer que points est bien un np.array
+        polygon = plt.Polygon(pts, edgecolor='gray', fill=None, linewidth=1)
+        ax.add_patch(polygon)
+
+    # Tracé des points initiaux
+    ax.scatter(points[:, 0], points[:, 1], color='blue', label="Points")
+
+    # Tracé de l'enveloppe concave (si fournie)
+    if concave_hull:
+        concave_hull.append(concave_hull[0])  # Ferme la boucle si elle existe
+        ax.plot(*zip(*concave_hull), marker='o', linestyle='-', color='red', linewidth=2, label="Enveloppe concave")
+
+    ax.legend()
+    ax.set_title("Triangulation de Delaunay et enveloppe concave")
+    plt.show()
+
+if __name__ == '__main__':
+    points = np.array([(random.randint(0, 100), random.randint(0, 100)) for _ in range(100)])  # Convertir en np.array
+    triangulation = Delaunay(points)
+    plot_triangles(points, triangulation.simplices, enveloppe_concave(points))
+

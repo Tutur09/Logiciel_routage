@@ -242,10 +242,23 @@ def plot_points_live_tk(ax, canvas, enveloppe_concave, parent_map, position_init
         print(f"L'enveloppe est invalide : {enveloppe_concave}")
         return
 
-    # Tracer l'enveloppe concave
+    # Tracer l'enveloppe concave    
+    if p.land_contact:
+        # Parcourir les points de l'enveloppe et tracer les segments si le point médian est sur l'eau
+        for i in range(len(enveloppe_concave)):
+            pt1 = enveloppe_concave[i]
+            pt2 = enveloppe_concave[(i + 1) % len(enveloppe_concave)]
+            if midpoint_on_water(pt1, pt2):
+                ax.plot([pt1[1], pt2[1]], [pt1[0], pt2[0]], color='red', linestyle='-', linewidth=1, transform=ccrs.PlateCarree())
+    else:
+        hull_lat, hull_lon = zip(*enveloppe_concave)
+        ax.plot(hull_lon, hull_lat, color=couleur, linestyle='-', linewidth=1, transform=ccrs.PlateCarree())
+    
+    # Affichage des points de l'enveloppe
     hull_lat, hull_lon = zip(*enveloppe_concave)
+    
     if p.enveloppe:
-        ax.plot(hull_lon + (hull_lon[0],), hull_lat + (hull_lat[0],), color=couleur, linestyle='-', linewidth=1, transform=ccrs.PlateCarree())
+        ax.plot(hull_lon, hull_lat, color=couleur, linestyle='-', linewidth=1, transform=ccrs.PlateCarree())
     ax.scatter(hull_lon, hull_lat, color='red', s=10, transform=ccrs.PlateCarree(), label='Enveloppe actuelle')
 
     # Déterminer le point le plus proche de la destination
@@ -276,18 +289,6 @@ def plot_points_live_tk(ax, canvas, enveloppe_concave, parent_map, position_init
     plt.legend(handles=[p_f, p_i])  # Exclure l'enveloppe concave de la légende
     canvas.draw_idle()
     canvas.flush_events()
-
-def tri_horaire(points):
-    lon_centre = np.mean([lon for lat, lon in points])
-    lat_centre = np.mean([lat for lat, lon in points])
-
-    points_angles = [
-        (lat, lon, np.arctan2(lat - lat_centre, lon - lon_centre)) for lat, lon in points
-    ]
-
-    points_triés = sorted(points_angles, key=lambda p: p[2])
-
-    return [(lat, lon) for lat, lon, angle in points_triés]
 
 def elaguer_enveloppe(points, distance):
     def calculer_distance(p1, p2):
@@ -349,16 +350,6 @@ def farthest_pair(points):
 
     return farthest_pair
 
-def side_of_line(p1, p2, p):
-    """Renvoie un nombre positif si p est à gauche de p1p2, négatif si à droite, 0 si aligné."""
-    cross_product = (p2[0] - p1[0]) * (p[1] - p1[1]) - (p2[1] - p1[1]) * (p[0] - p1[0])
-    return cross_product
-
-def points_on_final_side(points, p1, p2, final):
-    """Renvoie les points qui sont du côté du point final par rapport à la droite p1p2"""
-    side_final = side_of_line(p1, p2, final)
-    return [p for p in points if side_of_line(p1, p2, p) * side_final >= 0]
-
 def itere_jusqua_dans_enveloppe(points):
     
     if p.live:
@@ -384,37 +375,28 @@ def itere_jusqua_dans_enveloppe(points):
                 print('Heure ', heure)
 
             liste_parents_enfants = prochains_points_liste_parent_enfants(positions, point2, p.pas_temporel, p.pas_angle, math.floor(heure), filtrer_par_distance=True)
-            
             heure += p.pas_temporel
-            
-            points_aplatis = applatissement_liste(liste_parents_enfants)
-            
-            # print(points_aplatis)
-            
+            points_aplatis = applatissement_liste(liste_parents_enfants) 
+                       
             enveloppe_concave = envconc.enveloppe_concave(np.array((points_aplatis)))
-            print("pas bug")
-    
-            (p1, p2) = farthest_pair(enveloppe_concave)
-            
-            # if not p.land_contact:
-            #     enveloppe_concave = points_on_final_side(enveloppe_concave, p1, p2, point2)
-            
-            n1 = enveloppe_concave.index(p1)
-            n2 = enveloppe_concave.index(p2)
-            if n1 > n2:
-                n1, n2 = n2, n1
-            enveloppe_concave1 = enveloppe_concave[n1:n2+1]
-            enveloppe_concave2 = enveloppe_concave[n2:] + enveloppe_concave[:n1+1]
-            m1 = 1/len(enveloppe_concave1) * sum(distance_2_points(enveloppe_concave1[i], point2) for i in range(len(enveloppe_concave1)))
-            m2 = 1/len(enveloppe_concave2) * sum(distance_2_points(enveloppe_concave2[i], point2) for i in range(len(enveloppe_concave2)))
-            
-            if m1 <= m2:
-                enveloppe_concave = enveloppe_concave1
-            else:
-                enveloppe_concave = enveloppe_concave2
+            if not p.land_contact:
+                (p1, p2) = farthest_pair(enveloppe_concave)
+
+                n1 = enveloppe_concave.index(p1)
+                n2 = enveloppe_concave.index(p2)
+                if n1 > n2:
+                    n1, n2 = n2, n1
+                enveloppe_concave1 = enveloppe_concave[n1:n2+1]
+                enveloppe_concave2 = enveloppe_concave[n2:] + enveloppe_concave[:n1+1]
+                m1 = 1/len(enveloppe_concave1) * sum(distance_2_points(enveloppe_concave1[i], point2) for i in range(len(enveloppe_concave1)))
+                m2 = 1/len(enveloppe_concave2) * sum(distance_2_points(enveloppe_concave2[i], point2) for i in range(len(enveloppe_concave2)))
+                
+                if m1 <= m2:
+                    enveloppe_concave = enveloppe_concave1
+                else:
+                    enveloppe_concave = enveloppe_concave2
             
             enveloppe_concave = elaguer_enveloppe(enveloppe_concave, p.rayon_elemination)
-            print(enveloppe_concave)
                         
             if p.print_données:
                 print("Nombre de points dans enveloppe_concave:", len(enveloppe_concave), len(points_aplatis))
@@ -536,12 +518,25 @@ def itere_jusqua_dans_enveloppe_tk(points, ax, canvas):
             heure += p.pas_temporel
             points_aplatis = applatissement_liste(liste_parents_enfants)
             
-            enveloppe_concave = envconc.enveloppe_concave(np.array(points_aplatis))
+            enveloppe_concave = envconc.enveloppe_concave(np.array((points_aplatis)))
+            if not p.land_contact:
+                (p1, p2) = farthest_pair(enveloppe_concave)
+
+                n1 = enveloppe_concave.index(p1)
+                n2 = enveloppe_concave.index(p2)
+                if n1 > n2:
+                    n1, n2 = n2, n1
+                enveloppe_concave1 = enveloppe_concave[n1:n2+1]
+                enveloppe_concave2 = enveloppe_concave[n2:] + enveloppe_concave[:n1+1]
+                m1 = 1/len(enveloppe_concave1) * sum(distance_2_points(enveloppe_concave1[i], point2) for i in range(len(enveloppe_concave1)))
+                m2 = 1/len(enveloppe_concave2) * sum(distance_2_points(enveloppe_concave2[i], point2) for i in range(len(enveloppe_concave2)))
+                
+                if m1 <= m2:
+                    enveloppe_concave = enveloppe_concave1
+                else:
+                    enveloppe_concave = enveloppe_concave2
+            
             enveloppe_concave = elaguer_enveloppe(enveloppe_concave, p.rayon_elemination)
-            enveloppe_concave = [point for point in enveloppe_concave if point not in envconcave_precedent]
-            enveloppe_concave.append(point1) 
-            enveloppe_concave = tri_horaire(enveloppe_concave)
-            envconcave_precedent = enveloppe_concave
             
             if p.print_données:
                 print("Nombre de points dans enveloppe_concave:", len(enveloppe_concave), len(points_aplatis))

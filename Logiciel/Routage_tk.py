@@ -33,6 +33,8 @@ class RoutageApp:
         
         self.wind_display_enabled = False
 
+
+
         # Navigation Menu
         self.create_menu()
         
@@ -40,14 +42,16 @@ class RoutageApp:
         self.sidebar = Frame(self.root, bg="#2C3E50", width=300)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
         
-        # Main Content
         self.map_frame = Frame(self.root)
-        self.map_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        self.map_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)  # S'assure qu'il prend toute la place disponible
+
+
         
         # Matplotlib Figure
         self.fig, self.ax = plt.subplots(figsize=(1, 1), dpi=100, subplot_kw={"projection": ccrs.PlateCarree()})
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.map_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
         
         self.zoom_factor = 1.2
         self.drag_start = None
@@ -63,7 +67,7 @@ class RoutageApp:
         self.point_selection_enabled = False
         
         self.canvas.mpl_connect("scroll_event", self.zoom)
-        self.canvas.mpl_connect("button_press_event", self.on_left_press)
+        self.canvas.mpl_connect("button_press_event", self.on_left_press)   
         self.canvas.mpl_connect("button_release_event", self.on_release)
         self.canvas.mpl_connect("motion_notify_event", self.on_left_drag)
         
@@ -75,6 +79,7 @@ class RoutageApp:
         self.canvas.mpl_connect("key_press_event", self.on_key_press)
         self.canvas.mpl_connect("key_release_event", self.on_key_release)
         
+        self.canvas.mpl_connect("scroll_event", self.zoom)
 
     def create_menu(self):
         menu_bar = Menu(self.root)
@@ -126,65 +131,63 @@ class RoutageApp:
         tk.Button(self.sidebar, text="Lancer Routage", command=self.execute_routing, **button_config).pack(pady=10, padx=20)
         tk.Button(self.sidebar, text="Réinitialiser", command=self.reset_points, **button_config).pack(pady=10, padx=20)
         tk.Button(self.sidebar, text="Quitter", command=self.root.quit, **{**button_config, "bg": "#E74C3C"}).pack(pady=10, padx=20)
-    
+
     def initialize_map(self):
-        # Ne pas réinitialiser les marges ici pour éviter de modifier la mise en page
-        self.ax.set_extent(p.loc_nav, crs=ccrs.PlateCarree())
+        """Affiche la carte centrée sur un point spécifique avec une zone définie autour."""
+        # Définition du point central (exemple : centre de la Bretagne)
+        center_lat, center_lon = 48.0, -4.0  # Remplace par les coordonnées désirées
+
+        # Définition de la zone autour du point central (10° en lat/lon)
+        delta_lat = 5.0  # Écart en latitude
+        delta_lon = 5.0  # Écart en longitude
+
+        # Définition de la nouvelle étendue
+        xmin, xmax = center_lon - delta_lon, center_lon + delta_lon
+        ymin, ymax = center_lat - delta_lat, center_lat + delta_lat
+
+        # Appliquer l'étendue centrée
+        self.ax.set_extent([xmin, xmax, ymin, ymax], crs=ccrs.PlateCarree())
+
+        # Ajouter les éléments géographiques
         self.ax.add_feature(cfeature.COASTLINE.with_scale("10m"), linewidth=1)
         self.ax.add_feature(cfeature.BORDERS.with_scale("10m"), linestyle=":")
         self.ax.add_feature(cfeature.LAND, facecolor="lightgray")
         self.ax.add_feature(cfeature.OCEAN, facecolor="lightblue")
-        self.canvas.draw_idle()
-    
-    def resize_canvas(self, event):
-        available_width = event.width
-        available_height = event.height
-        container_ratio = available_width / available_height
 
-        xmin, xmax, ymin, ymax = p.loc_nav
-        map_ratio = (xmax - xmin) / (ymax - ymin)
-
-        # Ajustement de l'étendue selon le ratio du conteneur
-        if container_ratio > map_ratio:
-            # Le conteneur est plus large que le ratio d'origine.
-            # On étend l'axe x pour remplir l'espace sans changer l'axe y.
-            new_width = (ymax - ymin) * container_ratio
-            x_center = (xmax + xmin) / 2
-            new_xmin = x_center - new_width / 2
-            new_xmax = x_center + new_width / 2
-            new_extent = [new_xmin, new_xmax, ymin, ymax]
-        else:
-            # Le conteneur est plus étroit que le ratio d'origine.
-            # On étend l'axe y pour remplir l'espace sans changer l'axe x.
-            new_height = (xmax - xmin) / container_ratio
-            y_center = (ymax + ymin) / 2
-            new_ymin = y_center - new_height / 2
-            new_ymax = y_center + new_height / 2
-            new_extent = [xmin, xmax, new_ymin, new_ymax]
-
-        # Appliquer la nouvelle étendue en conservant la projection
-        self.ax.set_extent(new_extent, crs=ccrs.PlateCarree())
-
-        # Optionnel : redimensionner la figure pour correspondre exactement à la zone disponible
-        dpi = self.canvas.figure.dpi
-        self.fig.set_size_inches(available_width / dpi, available_height / dpi, forward=True)
-
-        # Laisser l'axe occuper toute la figure
+        # Supprimer toutes les marges et centrer
+        self.fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
         self.ax.set_position([0, 0, 1, 1])
+
+        self.canvas.draw_idle()
+        
+    def resize_canvas(self, event):
+        """Empêche l'ajustement automatique pour garder la carte centrée sur le point fixe."""
+        dpi = self.canvas.figure.dpi
+        self.fig.set_size_inches(event.width / dpi, event.height / dpi, forward=True)
         self.canvas.draw_idle()
 
     def zoom(self, event):
-        # Ne zoomer que si la touche Ctrl est enfoncée
-        if not self.ctrl_pressed:
+        # Vérifier si on utilise la molette ou le trackpad (les valeurs peuvent être inversées)
+        if event.step > 0:  # Zoom avant
+            factor = 1 / self.zoom_factor
+        elif event.step < 0:  # Zoom arrière
+            factor = self.zoom_factor
+        else:
             return
 
+        # Appliquer le facteur de zoom sur les limites actuelles
         xlim = self.ax.get_xlim()
         ylim = self.ax.get_ylim()
-        factor = 1 / self.zoom_factor if event.step > 0 else self.zoom_factor
-        self.ax.set_xlim([event.xdata - (event.xdata - xlim[0]) * factor,
-                        event.xdata + (xlim[1] - event.xdata) * factor])
-        self.ax.set_ylim([event.ydata - (event.ydata - ylim[0]) * factor,
-                        event.ydata + (ylim[1] - event.ydata) * factor])
+
+        self.ax.set_xlim([
+            event.xdata - (event.xdata - xlim[0]) * factor,
+            event.xdata + (xlim[1] - event.xdata) * factor
+        ])
+        self.ax.set_ylim([
+            event.ydata - (event.ydata - ylim[0]) * factor,
+            event.ydata + (ylim[1] - event.ydata) * factor
+        ])
+        
         self.canvas.draw_idle()
         
     def on_key_press(self, event):
@@ -229,7 +232,6 @@ class RoutageApp:
         self.wind_value_label.config(text=f"Heure du vent: {value}")
         if self.wind_display_enabled:
             self.display_wind()
-
 
     def compute_wind_display_data(self, hour):
         """
@@ -280,10 +282,27 @@ class RoutageApp:
     def display_wind(self):
         try:
             hour = int(self.wind_slider.get())
+            # Sauvegarder les limites actuelles
             current_xlim = self.ax.get_xlim()
             current_ylim = self.ax.get_ylim()
-            self.ax.cla()
-            self.initialize_map()
+            
+            # Effacer uniquement les couches qui ne sont pas le fond de carte ni les points
+            # Par exemple, supprimer les anciennes couches de vent si elles existent
+            if hasattr(self, "wind_mappable"):
+                self.wind_mappable.remove()
+                del self.wind_mappable
+            if hasattr(self, "wind_barbs"):
+                self.wind_barbs.remove()
+                del self.wind_barbs
+
+            # Ne pas effacer tout l'axe afin de conserver l'étendue contractée
+            # self.ax.cla() n'est pas utilisé ici
+
+            # Redessiner les caractéristiques géographiques si nécessaire
+            # (Si elles sont déjà présentes, pas besoin de les réajouter)
+            # Vous pouvez aussi vérifier ou redessiner uniquement si c'est indispensable.
+
+            # Restaurer les limites sauvegardées
             self.ax.set_xlim(current_xlim)
             self.ax.set_ylim(current_ylim)
 
@@ -299,37 +318,42 @@ class RoutageApp:
             data = self.wind_cache[hour]
 
             # Tracer le pcolormesh pour l'intensité du vent
-            if self.affichage_vent_couleur.get():    
+            if self.affichage_vent_couleur.get():
                 cmap = mcolors.ListedColormap(p.colors_windy)
                 norm = mcolors.BoundaryNorm(p.wind_speed_bins, cmap.N)
-                self.ax.pcolormesh(data["latitudes"], data["longitudes"], data["wind_speed"],
-                                transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto')
+                self.wind_mappable = self.ax.pcolormesh(
+                    data["latitudes"], data["longitudes"], data["wind_speed"],
+                    transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto'
+                )
 
-            # Tracer les barbs pour la direction
-            self.ax.barbs(data["longitudes_barb"], data["latitudes_barb"],
-                          1.852 * data["u10_barb"], 1.852 * data["v10_barb"],
-                          length=5, pivot="middle", barbcolor="black", linewidth=0.6,
-                          transform=ccrs.PlateCarree())
+            # Tracer les barbs pour la direction du vent
+            self.wind_barbs = self.ax.barbs(
+                data["longitudes_barb"], data["latitudes_barb"],
+                1.852 * data["u10_barb"], 1.852 * data["v10_barb"],
+                length=5, pivot="middle", barbcolor="black", linewidth=0.6,
+                transform=ccrs.PlateCarree()
+            )
 
             self.canvas.draw_idle()
         except ValueError:
             messagebox.showwarning("Erreur", "La valeur du slider est invalide.")
 
     def clear_wind_display(self):
-        current_xlim = self.ax.get_xlim()
-        current_ylim = self.ax.get_ylim()
-        self.ax.cla()
-        self.initialize_map()
-        self.ax.set_xlim(current_xlim)
-        self.ax.set_ylim(current_ylim)
+        # Retirer la couche de vent si elle existe
+        if hasattr(self, "wind_mappable"):
+            self.wind_mappable.remove()
+            del self.wind_mappable
+        if hasattr(self, "wind_barbs"):
+            self.wind_barbs.remove()
+            del self.wind_barbs
+
+        # Optionnel : vous pouvez redessiner les points ou autres éléments statiques
         for pt in p.points:
             lat, lon = pt
             color = "green" if p.points.index(pt) == 0 else "red" if p.points.index(pt) == 1 else "black"
             self.ax.scatter(lon, lat, color=color, marker="x", s=100, transform=ccrs.PlateCarree())
+
         self.canvas.draw_idle()
-
-
-
 
     def enable_point_selection(self):
         self.point_selection_enabled = True
@@ -350,19 +374,37 @@ class RoutageApp:
             self.selection_button.config(bg=self.selection_button_default_bg)
         self.canvas.draw_idle()
 
+    def clear_dynamic_elements(self):
+        # Supprimer les objets dynamiques dans les collections (pcolormesh, etc.)
+        for coll in list(self.ax.collections):
+            if not getattr(coll, "_is_static", False):
+                coll.remove()
+
+        # Supprimer les lignes (routes, enveloppes, etc.)
+        for line in list(self.ax.lines):
+            if not getattr(line, "_is_static", False):
+                line.remove()
+
+        # Vous pouvez aussi faire de même pour les textes ou autres artistes
+        self.canvas.draw_idle()
+
     def reset_points(self):
         if messagebox.askyesno("Confirmation", "Réinitialiser tous les points ?"):
+            # Réinitialiser la liste des points
             p.points = []
-            # Capturer l'étendue actuelle de la carte pour la conserver
+
+            # Sauvegarder l'étendue actuelle (dimensions de la vue)
             current_extent = self.ax.get_extent(crs=ccrs.PlateCarree())
-            # Effacer l'axe
-            self.ax.clear()
-            # Réinitialiser la carte sans modifier son espace occupé
-            self.initialize_map()
-            # Restaurer l'étendue capturée
-            self.ax.set_extent(current_extent, crs=ccrs.PlateCarree())
-            # Réafficher le marqueur de position (en bleu)
+
+            # Effacer uniquement les éléments dynamiques
+            self.clear_dynamic_elements()
+
+            # (Optionnel) Vous pouvez également mettre à jour d'autres éléments dynamiques
+            # par exemple, réafficher le marqueur de position
             self.update_computer_position()
+
+            # Restaurer l'étendue sauvegardée pour conserver le zoom/pan
+            self.ax.set_extent(current_extent, crs=ccrs.PlateCarree())
             self.canvas.draw_idle()
 
     def on_click(self, event):
@@ -380,7 +422,6 @@ class RoutageApp:
             self.selection_artists = []
         self.selection_artists.append(artist)
         self.canvas.draw_idle()
-
 
     def execute_routing(self):
         if self.point_selection_enabled:
@@ -453,8 +494,6 @@ class RoutageApp:
         except ValueError as e:
             messagebox.showerror("Erreur", f"Valeur invalide : {e}")
 
-
-    
     def update_computer_position(self):
         # Si l'affichage de la position est désactivé, on ne met pas à jour le marqueur
         if not self.position_visible.get():
@@ -510,10 +549,7 @@ class RoutageApp:
                 except Exception as e:
                     print("Erreur lors de la suppression du marqueur:", e)
                 self.canvas.draw_idle()
-                
-    
-
-        
+                        
 if __name__ == "__main__":
     root = tk.Tk()
     app = RoutageApp(root)

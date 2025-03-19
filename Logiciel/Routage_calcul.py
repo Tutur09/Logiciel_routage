@@ -2,10 +2,11 @@ import numpy as np
 import pandas as pd
 import math
 from time import time
-import matplotlib.pyplot as plt
 from copy import copy
 
 from cartopy import crs as ccrs, feature as cfeature
+from scipy.spatial import ConvexHull
+import matplotlib.pyplot as plt
 
 import Routage_Vent as rv
 import Routage_Paramètres as p
@@ -15,16 +16,17 @@ import Routage_Coastline as rc
 from concurrent.futures import ThreadPoolExecutor
 
 "Constantes"
-R = 3440.0
+R = 6371.0 # KM
 
-def projection(position, cap, distance):
+
+def projection(position, cap, distance_NM):
     lat_ini = position[0]    
     long_ini = position[1]
     lat_ini_rad = math.radians(lat_ini)
     long_ini_rad = math.radians(long_ini)
     
     cap_rad = math.radians(cap)
-    
+    distance = distance_NM * 1.852 # On convertit en KM car le rayon terrestre est en KM
     distance_ratio = distance / R
     
     new_lat_rad = math.asin(math.sin(lat_ini_rad) * math.cos(distance_ratio) + 
@@ -87,8 +89,8 @@ def prochains_points_liste_parent_enfants(liste, point_suivant, pas_temporel, pa
     return liste_rendu
 
 def plus_proche_que_parent(point_arrivee, pos_parent, pos_enfant):
-    distance_parent = math.sqrt((point_arrivee[0] - pos_parent[0])**2 + (point_arrivee[1] - pos_parent[1])**2)
-    distance_enfant = math.sqrt((point_arrivee[0] - pos_enfant[0])**2 + (point_arrivee[1] - pos_enfant[1])**2)
+    distance_parent = distance_2_points(point_arrivee, pos_parent)
+    distance_enfant = distance_2_points(point_arrivee, pos_enfant)
     return distance_enfant < distance_parent
 
 def polaire(vitesse_vent): # A partir d'un fichier polaire, on récupère que la vitesse du bateau pour une vitesse de vent vitesse_dent pour chaque angle
@@ -144,7 +146,27 @@ def applatissement_liste(listes_emboitées):
     return liste_applaitie
 
 def distance_2_points(point1, point2):
-    return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
+    """
+    Calcule la distance entre deux points en miles nautiques (NM)
+    en utilisant une version optimisée de la formule de Haversine.
+
+    :param point1: (lat1, lon1) en degrés
+    :param point2: (lat2, lon2) en degrés
+    :return: Distance en miles nautiques
+    """
+    lat1, lon1, lat2, lon2 = map(math.radians, (*point1, *point2))
+    
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    sin_dlat2 = math.sin(dlat / 2)
+    sin_dlon2 = math.sin(dlon / 2)
+    
+    a = sin_dlat2 * sin_dlat2 + math.cos(lat1) * math.cos(lat2) * sin_dlon2 * sin_dlon2
+    c = 2 * math.atan2(math.sqrt(a), math.hypot(1 - a, math.sqrt(a)))
+
+    return (R * c) / 1.852  # Distance en miles nautiques
+
 
 def dist_bateau_point(points, point_final, tolérance):
     for point in points:
@@ -323,9 +345,6 @@ def calculer_cap(lat1, lon1, lat2, lon2):
 
     return cap
 
-from scipy.spatial import ConvexHull
-
-
 def farthest_pair(points):
     points = np.array(points)
     hull = ConvexHull(points)
@@ -354,6 +373,8 @@ def itere_jusqua_dans_enveloppe(points):
     
     if p.live:
         fig, ax = plt.subplots(figsize=(20, 16), subplot_kw={'projection': ccrs.PlateCarree()})
+        # fig, ax = plt.subplots(figsize=(20, 16), subplot_kw={'projection': ccrs.Mollweide()})
+
         ax.set_extent(p.loc_nav, crs=ccrs.PlateCarree())
         ax.add_feature(cfeature.COASTLINE.with_scale('10m'), linewidth=1)
         ax.add_feature(cfeature.BORDERS.with_scale('10m'), linestyle=':')
@@ -601,7 +622,9 @@ def itere_jusqua_dans_enveloppe_tk(points, ax, canvas):
     dict_chemin = itération(point_départ, point_suivant, p.heure_début, {point_départ: None}, points, route=[])
     return dict_chemin
 
-
 #Avant dans la fonction polaire, mais je le sors pour le calculer une fois
 polaire_df = pd.read_csv(p.polaire, delimiter=p.delimeter, index_col=0)
 liste_angle = polaire_df.index
+
+if __name__ == '__main__':
+    pass

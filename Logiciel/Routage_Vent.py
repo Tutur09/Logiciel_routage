@@ -429,6 +429,7 @@ def point_ini_fin(loc):
             plt.draw()
 
     fig, ax = plt.subplots(figsize=(12, 7), subplot_kw={"projection": ccrs.PlateCarree()})
+ 
     
     # Définir l'étendue de la carte
     ax.set_extent(loc, crs=ccrs.PlateCarree())

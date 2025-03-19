@@ -40,20 +40,20 @@ loc_nav = [bg[1], hd[1], bg[0], hd[0]]
 
 points = [position_initiale, position_finale]
 
-pas_temporel = 0.5
+pas_temporel = 0.25
 pas_angle = 10
 
 
 heure_initiale = 12
-date_initiale = "0301" # MMJJ
+date_initiale = "0319" # MMJJ
 
 tolerance = 0.0001
-rayon_elemination = 0.05
+rayon_elemination = 0.2
 
 skip = 5
 skip_vect_vent = 5
 
-tolerance_arrivée = 0.3
+tolerance_arrivée = 100
 
 land_contact = False
 
@@ -69,7 +69,7 @@ enveloppe = True
 drapeau = True
 
 # FICHIER METEO, TERRE
-vent = r"Données_vent\METEOFRANCE_AROME_13Z_VENT_0315_.grib"
+vent = r"Données_vent\METEOCONSULT12Z_VENT_0319_Nord_Atlantique.grb"
 new = True
 nb_step = 0
 

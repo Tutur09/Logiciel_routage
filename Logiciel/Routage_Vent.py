@@ -232,7 +232,7 @@ def plot_wind_tk(ax, canvas, loc, step_indices=[1], chemin_x=None, chemin_y=None
     # Mettre à jour l'affichage en live dans Tkinter
     canvas.draw()
 
-def plot_grib(heure, position=None, route=None, context=None, skip = p.skip, skip_vect_vent = p.skip_vect_vent):
+def plot_grib(heure, position=None, route=None, context=None, skip = p.skip, skip_vect_vent = p.skip_vect_vent, loc_nav = p.loc_nav):
     if not isinstance(heure, list):
         heure = [heure]
 
@@ -257,7 +257,7 @@ def plot_grib(heure, position=None, route=None, context=None, skip = p.skip, ski
     for idx, (ax, h) in enumerate(zip(axes, heure)):
         # Set map extent and features
         if hasattr(ax, 'set_extent'):  # Ensure ax is a valid axis with set_extent
-            ax.set_extent(p.loc_nav, crs=ccrs.PlateCarree())
+            ax.set_extent(loc_nav, crs=ccrs.PlateCarree())
             ax.coastlines()
             ax.add_feature(cfeature.BORDERS.with_scale('10m'), linestyle=':')
             ax.add_feature(cfeature.LAND, facecolor='lightgray')
@@ -493,6 +493,9 @@ else:
 
 
 if __name__ == '__main__':
-    ds = xr.open_dataset(file_path, engine='cfgrib')
-    print(ds)
-    # plot_grib([0], skip = 1, skip_vect_vent = 25)
+
+    bg = (47.25980827350693, -3.3287929957100237)
+    hd = (47.596820491451524, -2.750893945710898)
+    loc_nav = [bg[1], hd[1], bg[0], hd[0]]
+    
+    plot_grib([7], skip = 1, skip_vect_vent = 7, loc_nav=loc_nav)

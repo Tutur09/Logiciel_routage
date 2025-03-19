@@ -69,8 +69,8 @@ enveloppe = True
 drapeau = True
 
 # FICHIER METEO, TERRE
-vent = r"Données_vent\METEOCONSULT18Z_VENT_0228_Gascogne.grb"
-new = False
+vent = r"Données_vent\METEOFRANCE_AROME_13Z_VENT_0315_.grib"
+new = True
 nb_step = 0
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'

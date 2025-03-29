@@ -104,6 +104,25 @@ def plot_wind(ax, loc, step_indices=[1], chemin_x=None, chemin_y=None):
                 v10_specific = ds['v10'].isel(step=int(step_index)).values
                 latitudes = ds['latitude'].values
                 longitudes = ds['longitude'].values
+                
+                lon_min, lon_max, lat_min, lat_max = loc
+                
+                lat_indices = np.where((latitudes >= lat_min%360) & (latitudes <= lat_max%360))[0]
+                lon_indices = np.where((longitudes >= lon_min%360) & (longitudes <= lon_max%360))[0]
+
+                # sous-échantillonnage pour skip
+                lat_idx = lat_indices[::p.skip]
+                lon_idx = lon_indices[::p.skip]
+                lat_idx_barb = lat_indices[::p.skip_vect_vent]
+                lon_idx_barb = lon_indices[::p.skip_vect_vent]
+
+                # sous-tableaux filtrés
+                lat_filtered = latitudes[lat_idx]
+                lon_filtered = longitudes[lon_idx]
+                u_filtered = u10_specific[np.ix_(lat_idx, lon_idx)]
+                v_filtered = v10_specific[np.ix_(lat_idx, lon_idx)]                
+             
+                
             except Exception as e:
                 u10_specific = ds['u10'].isel(step=int(-1)).values
                 v10_specific = ds['v10'].isel(step=int(-1)).values
@@ -120,25 +139,20 @@ def plot_wind(ax, loc, step_indices=[1], chemin_x=None, chemin_y=None):
         else:
             raise ValueError("La source spécifiée doit être 'grib' ou 'excel'.")
 
-        # Sous-échantillonnage
-        latitudes = latitudes[::p.skip]
-        longitudes = longitudes[::p.skip]
-        u10_specific = u10_specific[::p.skip, ::p.skip]
-        v10_specific = v10_specific[::p.skip, ::p.skip]
-
         # Calcul de la vitesse du vent
-        wind_speed = 1.852 * np.sqrt(u10_specific**2 + v10_specific**2)
+        wind_speed = 1.852 * np.sqrt(u_filtered**2 + v_filtered**2)
 
         # Colorier la carte avec les vitesses du vent
         mesh = ax.pcolormesh(
-            longitudes, latitudes, wind_speed,
+            lon_filtered, lat_filtered, wind_speed,
             transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto'
         )
 
         # Ajouter des vecteurs noirs pour la direction
         ax.barbs(
-            longitudes[::p.skip_vect_vent], latitudes[::p.skip_vect_vent],
-            1.852 * u10_specific[::p.skip_vect_vent, ::p.skip_vect_vent], 1.852 * v10_specific[::p.skip_vect_vent, ::p.skip_vect_vent],
+            longitudes[lon_idx_barb], latitudes[lat_idx_barb],
+            1.852 * u10_specific[np.ix_(lat_idx_barb, lon_idx_barb)],
+            1.852 * v10_specific[np.ix_(lat_idx_barb, lon_idx_barb)],
             length=5, pivot='middle', barbcolor='black', linewidth=0.6, 
             transform=ccrs.PlateCarree()
         )
@@ -277,6 +291,28 @@ def plot_grib(heure, position=None, route=None, context=None, skip = p.skip, ski
                     latitudes = ds['latitude'].values
                     longitudes = ds['longitude'].values
                     
+                    print(u10_specific.size, v10_specific.size, latitudes.size, longitudes.size)
+                    
+                    # extraire les bornes
+                    lon_min, lon_max, lat_min, lat_max = loc_nav
+
+                    # trouver les indices des latitudes et longitudes dans la zone
+                    lat_indices = np.where((latitudes >= lat_min%360) & (latitudes <= lat_max%360))[0]
+                    lon_indices = np.where((longitudes >= lon_min%360) & (longitudes <= lon_max%360))[0]
+
+                    # sous-échantillonnage pour skip
+                    lat_idx = lat_indices[::skip]
+                    lon_idx = lon_indices[::skip]
+                    lat_idx_barb = lat_indices[::skip_vect_vent]
+                    lon_idx_barb = lon_indices[::skip_vect_vent]
+
+                    # sous-tableaux filtrés
+                    lat_filtered = latitudes[lat_idx]
+                    lon_filtered = longitudes[lon_idx]
+                    u_filtered = u10_specific[np.ix_(lat_idx, lon_idx)]
+                    v_filtered = v10_specific[np.ix_(lat_idx, lon_idx)]
+                    
+                    
 
                 except Exception as e:
                     print(f"Error accessing GRIB data: {e}")
@@ -291,23 +327,21 @@ def plot_grib(heure, position=None, route=None, context=None, skip = p.skip, ski
             else:
                 raise ValueError("Source de données invalide.")
 
-            wind_speed = 1.852 * np.sqrt(u10_specific[::skip, ::skip]**2 + v10_specific[::skip, ::skip]**2)
+            wind_speed = 1.852 * np.sqrt(u_filtered**2 + v_filtered**2)
 
-            # Plot wind speed
             mesh = ax.pcolormesh(
-                longitudes[::skip], latitudes[::skip], wind_speed,
+                lon_filtered, lat_filtered, wind_speed,
                 transform=ccrs.PlateCarree(), cmap=cmap, norm=norm, shading='auto'
             )
 
-            # Pour ajout des barbes
-            
             ax.barbs(
-                longitudes[::skip_vect_vent], latitudes[::skip_vect_vent],
-                1.852 * u10_specific[::skip_vect_vent, ::skip_vect_vent],
-                1.852 * v10_specific[::skip_vect_vent, ::skip_vect_vent],
+                longitudes[lon_idx_barb], latitudes[lat_idx_barb],
+                1.852 * u10_specific[np.ix_(lat_idx_barb, lon_idx_barb)],
+                1.852 * v10_specific[np.ix_(lat_idx_barb, lon_idx_barb)],
                 length=5, pivot='middle', barbcolor='black', linewidth=0.6,
                 transform=ccrs.PlateCarree()
             )
+
 
             cbar = plt.colorbar(mesh, ax=ax, orientation='vertical', pad=0.02, shrink=0.5)
             cbar.set_label("Vitesse du vent (nœuds)")
@@ -463,9 +497,7 @@ def point_ini_fin(loc):
         print("Sélection incomplète. Veuillez sélectionner au moins deux points (départ et arrivée).")
         return None
 
-  
-
-#Chemin d'accès du fichier GRIB vent et courant (pas encore fait)
+#Chemin d'accès du fichier GRIB vent
 file_path = p.vent
 
 if p.type == 'grib':
@@ -487,14 +519,12 @@ if p.type == 'grib':
         with open("v10_values.pkl", "rb") as f:
             v10_values = pickle.load(f)
             
-
 else:
     u_xl, v_xl, lat_xl, lon_xl = excel_to_uv_components(p.excel_wind)
     print("Dimensions de lon_grid :", lon_xl.shape)
     print("Dimensions de lat_grid :", lat_xl.shape)
     print("Dimensions de u :", u_xl.shape)
     print("Dimensions de v :", v_xl.shape)
-
 
 if __name__ == '__main__':
 

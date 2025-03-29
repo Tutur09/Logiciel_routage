@@ -8,6 +8,7 @@ from scipy.interpolate import griddata
 import cartopy.crs as ccrs
 import math
 
+R = 6371.0 # KM
 file_path = r'Logiciel\QUIBERON_558'
 
 def parse_coord(coord_str):
@@ -30,6 +31,26 @@ def parse_coord(coord_str):
             minutes = coord_str[2::]
             
     return sign * (float(degrees) + float(minutes)/60)
+
+def projection(position, cap, distance_NM):
+    lat_ini = position[0]    
+    long_ini = position[1]
+    lat_ini_rad = math.radians(lat_ini)
+    long_ini_rad = math.radians(long_ini)
+    
+    cap_rad = math.radians(cap)
+    distance = distance_NM * 1.852 # On convertit en KM car le rayon terrestre est en KM
+    distance_ratio = distance / R
+    
+    new_lat_rad = math.asin(math.sin(lat_ini_rad) * math.cos(distance_ratio) + 
+                            math.cos(lat_ini_rad) * math.sin(distance_ratio) * math.cos(cap_rad))
+    
+    new_long_rad = long_ini_rad + math.atan2(math.sin(cap_rad) * math.sin(distance_ratio) * math.cos(lat_ini_rad),
+                                             math.cos(distance_ratio) - math.sin(lat_ini_rad) * math.sin(new_lat_rad))
+    lat_rad = math.degrees(new_lat_rad)
+    lon_rad = math.degrees(new_long_rad)
+    
+    return (lat_rad, lon_rad)
 
 def ouverture_fichier_courant(file_path):
         
@@ -66,7 +87,7 @@ def ouverture_fichier_courant(file_path):
             values = []
 
             for i in range(13):
-                values += [(int(line[i*3:i*3+3]), int(line[(i*3+41):(i*3+40+4)]))]
+                values += [(round(0.1*int(line[i*3:i*3+3]), 2), round(0.1*int(line[(i*3+41):(i*3+40+4)]), 2))]
             return values
 
 
@@ -233,7 +254,7 @@ def récupérer_courant(pos, heure, blocks, type_maree="vive_eau"):
         return (lat1 - lat2)**2 + (lon1 - lon2)**2
 
     bloc_proche = min(blocks, key=lambda b: distance_squared(lat, lon, b["coords"][0], b["coords"][1]))
-    print(bloc_proche)
+    # print(bloc_proche)
     data = bloc_proche[type_maree]
 
     u1, v1 = data[h_inf]
@@ -243,7 +264,7 @@ def récupérer_courant(pos, heure, blocks, type_maree="vive_eau"):
     u = (1 - alpha) * u1 + alpha * u2
     v = (1 - alpha) * v1 + alpha * v2
 
-    return u / 10.0, v / 10.0  # Retour en nœuds
+    return u, v  # Retour en nœuds
 
 def position_courant(pos, u_courant, v_courant, pas_temporel):
     """
@@ -255,24 +276,11 @@ def position_courant(pos, u_courant, v_courant, pas_temporel):
 
     Retour : (lat_new, lon_new)
     """
-    lat, lon = pos
-
-    # Conversion du courant en m/s
-    u_ms = u_courant * 0.5144
-    v_ms = v_courant * 0.5144
-
-    # Distance parcourue
-    dx = u_ms * pas_temporel  # en mètres (est-ouest)
-    dy = v_ms * pas_temporel  # en mètres (nord-sud)
-
-    # Approximation : 1° de lat = ~111.32 km
-    delta_lat = dy / 111_320  # en degrés
-    delta_lon = dx / (111_320 * math.cos(math.radians(lat)))  # en degrés
-
-    lat_new = lat + delta_lat
-    lon_new = lon + delta_lon
-
-    return lat_new, lon_new
+    angle = math.degrees(math.atan2(v_courant, u_courant))
+    
+    distance = pas_temporel * math.sqrt(u_courant**2 + v_courant**2)
+    
+    return projection(pos, angle, distance)
 
 def vérification_position_courant(
     pos_depart,
@@ -291,7 +299,7 @@ def vérification_position_courant(
     blocks : issus de ouverture_fichier_courant
     type_maree : "vive_eau" ou "morte_eau"
     pas_h : pas de temps en heures
-    """
+    """ 
     pos = pos_depart
     heure = heure_depart
 
@@ -320,7 +328,7 @@ def vérification_position_courant(
     for t in range(0, durée_heures, pas_h):
         try:
             u, v = récupérer_courant(pos, heure, blocks, type_maree=type_maree)
-
+            # print(math.degrees(math.atan2(v, u)), 1 * math.sqrt(u**2 + v**2))
         except Exception as e:
             print(f"Erreur à t={t}h : {e}")
             break
@@ -333,11 +341,7 @@ def vérification_position_courant(
         else:
             heure = -6
 
-        lats.append(pos[0])
-        lons.append(pos[1])
-        heures.append(heure)
-
-        # Mise à jour du tracé
+        # Rafraîchir le fond de carte
         ax.clear()
         ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
         ax.coastlines(resolution='10m')
@@ -347,21 +351,23 @@ def vérification_position_courant(
         gl = ax.gridlines(draw_labels=True)
         gl.top_labels = gl.right_labels = False
 
-        ax.plot(lons, lats, marker='o', linestyle='-', color='blue', transform=ccrs.PlateCarree())
-
+        # Afficher uniquement la position actuelle
+        ax.plot(pos[1], pos[0], marker='o', color='red', transform=ccrs.PlateCarree())
         plt.pause(0.3)
-
     plt.show()
 
 blocks = ouverture_fichier_courant(file_path)
 
 if __name__ == "__main__":
+    # print(blocks)
     # animate_courant(blocks)
     # print(récupérer_courant((47.4, -3), 0, blocks))
     vérification_position_courant(
-        pos_depart=(47.4, -3.05),
+        pos_depart=(47.4, -2.9),
         heure_depart=0,
         durée_heures=100,
         blocks=blocks,
         type_maree="vive_eau"
     )
+    # u,v = récupérer_courant((47.4, -3), 3, blocks)
+    # print(math.degrees(math.atan2(v, u)), 1 * math.sqrt(u**2 + v**2))

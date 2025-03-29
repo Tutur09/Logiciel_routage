@@ -48,9 +48,12 @@ def prochains_points(parent_point, pol_v_vent, d_vent, pas_temporel, pas_angle):
         liste_points.append(projection(parent_point, angle, v_bateau * pas_temporel))
     
     if p.courant:
+        liste_points_bis = []
         for point in liste_points:
-            uv = rcourant.récupérer_courant(point, 3, rcourant.blocks)
-            parent_point = rcourant.routaposition_courant(point, uv[0], uv[1], p.pas_temporel)
+            u, v = rcourant.récupérer_courant(point, 3, rcourant.blocks)
+            point = rcourant.position_courant(point, u, v, pas_temporel)
+            liste_points_bis.append(point)
+        liste_points = liste_points_bis
 
     return liste_points
 
@@ -446,10 +449,7 @@ def itere_jusqua_dans_enveloppe(points):
                 print("le nombre de points est : ", len(positions))
             
             if dist_bateau_point(positions, point2, p.tolerance_arrivée): # Condiction d'arrêt de routage
-                print(points)
                 last_point = points.pop(0)
-                print(points)
-                print(len(points))
                 
                 if len(points) == 0:
                     print("La position finale est maintenant dans l'enveloppe concave.")

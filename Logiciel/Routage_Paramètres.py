@@ -40,7 +40,7 @@ loc_nav = [bg[1], hd[1], bg[0], hd[0]]
 
 points = [position_initiale, position_finale]
 
-pas_temporel = 0.05
+pas_temporel = 0.25
 pas_angle = 10
 
 
@@ -55,8 +55,8 @@ skip_vect_vent = 1
 
 tolerance_arrivée = 2
 
-land_contact = False
-courant = False
+land_contact = True
+courant = True
 
 enregistrement = False
 enregistrement_live = False
@@ -82,8 +82,8 @@ type = 'grib'
 output_dir = r'C:\Users\arthu\OneDrive\Arthur\Programmation\TIPE_Arthur_Lhoste\images_png'
 
 # PARAMETRES POUR LA POLAIRE
-delimeter = r';'  # r'\s+' si Sunfastpol sinon r';'  pour Imoca 
-polaire = r'Polaire\Imoca2.pol'
+delimeter = r'\s+'  # r'\s+' si Sunfastpol sinon r';'  pour Imoca 
+polaire = r'Polaire\Sunfast3600.pol'
 
 
 "PARAMETRES VISUELS"

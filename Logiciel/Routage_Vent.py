@@ -270,16 +270,19 @@ def plot_grib(heure, position=None, route=None, context=None, skip = p.skip, ski
             cmap = mcolors.ListedColormap(p.colors_windy)
             norm = mcolors.BoundaryNorm(p.wind_speed_bins, cmap.N)
 
-            # Extract wind data for the specific hour
             if p.type == "grib":
                 try:
                     u10_specific = ds['u10'].isel(step=int(h)).values
                     v10_specific = ds['v10'].isel(step=int(h)).values
                     latitudes = ds['latitude'].values
                     longitudes = ds['longitude'].values
+                    
+
                 except Exception as e:
                     print(f"Error accessing GRIB data: {e}")
                     continue
+
+                        
             elif p.type == "excel":
                 u10_specific = u_xl[0]
                 v10_specific = v_xl[0]

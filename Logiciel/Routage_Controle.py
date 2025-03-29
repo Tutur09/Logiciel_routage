@@ -16,4 +16,3 @@ p.points = copy(points)
 p.enable_prints()
 
 chemin = rc.itere_jusqua_dans_enveloppe(points)
-

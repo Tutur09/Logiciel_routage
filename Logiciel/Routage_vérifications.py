@@ -2,7 +2,9 @@ import Routage_calcul as rc
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-
+import Routage_courant as rcourant 
+from datetime import timedelta, datetime
+import time
 
 # Vérification de la courbure terrestre via la projection
 def vérification_projection(latitudes = [10, 30, 50, 70], longitude = -3.0):
@@ -27,8 +29,9 @@ def vérification_projection(latitudes = [10, 30, 50, 70], longitude = -3.0):
 
     plt.show()
 
+import matplotlib.pyplot as plt
+from datetime import timedelta
+import time
 
-
-
-if __name__ == "--main__":
+if __name__ == "__main__":
     pass

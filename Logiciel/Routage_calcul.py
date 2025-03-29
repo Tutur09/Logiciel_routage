@@ -1,23 +1,22 @@
 import numpy as np
 import pandas as pd
 import math
-from time import time
 from copy import copy
 
+import matplotlib.pyplot as plt
 from cartopy import crs as ccrs, feature as cfeature
 from scipy.spatial import ConvexHull
-import matplotlib.pyplot as plt
 
 import Routage_Vent as rv
 import Routage_Paramètres as p
 import Routage_Enveloppe_Concave as envconc
 import Routage_Coastline as rc
+import Routage_courant as rcourant
 
 from concurrent.futures import ThreadPoolExecutor
 
 "Constantes"
 R = 6371.0 # KM
-
 
 def projection(position, cap, distance_NM):
     lat_ini = position[0]    
@@ -43,16 +42,21 @@ def prochains_points(parent_point, pol_v_vent, d_vent, pas_temporel, pas_angle):
     
     liste_points = [] # Liste qui va contenir les fils du père
 
-    angles_concervés = list(range(0, 360, pas_angle))
+    angles_concervés = list(range(0, 360, pas_angle)) # On sélectionne tout les pas_angles pour limiter le nombre de points 
     for angle in angles_concervés:
         v_bateau = recup_vitesse_fast(pol_v_vent, d_vent - angle)
         liste_points.append(projection(parent_point, angle, v_bateau * pas_temporel))
+    
+    if p.courant:
+        for point in liste_points:
+            uv = rcourant.récupérer_courant(point, 3, rcourant.blocks)
+            parent_point = rcourant.routaposition_courant(point, uv[0], uv[1], p.pas_temporel)
 
     return liste_points
 
 def traiter_point(lat, lon, point_suivant, pas_temporel, pas_angle, heure, filtrer_par_distance):
     parent_point = (lat, lon)
-
+        
     v_vent, d_vent = rv.get_wind_at_position(lat, lon, heure)
     pol_v_vent = polaire(v_vent)
 
@@ -93,7 +97,7 @@ def plus_proche_que_parent(point_arrivee, pos_parent, pos_enfant):
     distance_enfant = distance_2_points(point_arrivee, pos_enfant)
     return distance_enfant < distance_parent
 
-def polaire(vitesse_vent): # A partir d'un fichier polaire, on récupère que la vitesse du bateau pour une vitesse de vent vitesse_dent pour chaque angle
+def polaire(vitesse_vent): # A partir d'un fichier polaire, on récupère que la vitesse du bateau pour une vitesse de vent vitesse_vent pour chaque angle
     liste_vitesse = polaire_df.columns
 
     i = 0
@@ -167,7 +171,6 @@ def distance_2_points(point1, point2):
 
     return (R * c) / 1.852  # Distance en miles nautiques
 
-
 def dist_bateau_point(points, point_final, tolérance):
     for point in points:
         distance = distance_2_points(point, point_final)
@@ -180,7 +183,7 @@ def midpoint_on_water(pt1, pt2):
     mid = ((pt1[0] + pt2[0]) / 2, (pt1[1] + pt2[1]) / 2)
     # Vérifier si ce point est sur l'eau (get_point_value renvoie 0 pour l'eau)
     return rc.get_point_value(mid) == 0
-    
+ 
 def plot_points_live(ax, enveloppe_concave, parent_map, position_initiale, position_finale, route, step_index, loc, couleur='blue'):
     # Effacer uniquement les vecteurs de vent et les chemins, mais garder les enveloppes
     for artist in ax.collections:
@@ -371,7 +374,7 @@ def farthest_pair(points):
 
 def itere_jusqua_dans_enveloppe(points):
     
-    if p.live:
+    if p.live: # Préparation du plot (tracé terrestre, couleurs, dimensions, ...)
         fig, ax = plt.subplots(figsize=(20, 16), subplot_kw={'projection': ccrs.PlateCarree()})
         # fig, ax = plt.subplots(figsize=(20, 16), subplot_kw={'projection': ccrs.Mollweide()})
 
@@ -397,10 +400,12 @@ def itere_jusqua_dans_enveloppe(points):
 
             liste_parents_enfants = prochains_points_liste_parent_enfants(positions, point2, p.pas_temporel, p.pas_angle, math.floor(heure), filtrer_par_distance=True)
             heure += p.pas_temporel
-            points_aplatis = applatissement_liste(liste_parents_enfants) 
+            print()
+            points_aplatis = applatissement_liste(liste_parents_enfants) # Applitessement de la liste de listes pour appliquer la fonction enveloppe_concave
                        
             enveloppe_concave = envconc.enveloppe_concave(np.array((points_aplatis)))
-            if not p.land_contact:
+            
+            if not p.land_contact: # Je choisie un type d'enveloppe différent en fonction de si le contact terrestre est activé
                 (p1, p2) = farthest_pair(enveloppe_concave)
 
                 n1 = enveloppe_concave.index(p1)
@@ -422,24 +427,25 @@ def itere_jusqua_dans_enveloppe(points):
             if p.print_données:
                 print("Nombre de points dans enveloppe_concave:", len(enveloppe_concave), len(points_aplatis))
 
+            # On attribut à chaque point son parent pour pouvoir remonter l'arbre formé et déterminer les points de la route idéale
             for parent, enfants in liste_parents_enfants:
                 for enfant in enfants:
                     if enfant not in parent_map:
                         parent_map[enfant] = parent
 
-            
-            if p.live:
+            if p.live: # Affichage live
                 plot_points_live(ax, enveloppe_concave, parent_map, point1, point2, route, step_index=heure, loc=p.loc_nav)
                 if p.enregistrement_live:
                     plot_filename = f"{"route_ideale"}/route_ideale_vent_heure_{heure}.png"
                     plt.savefig(plot_filename)
-                    print(f"Plot enregistré sous : {plot_filename}")    
-            # Mettre à jour les positions pour la prochaine itération
+                    print(f"Plot enregistré sous : {plot_filename}")  
+                      
             positions = enveloppe_concave
+            
             if p.print_données:
                 print("le nombre de points est : ", len(positions))
             
-            if dist_bateau_point(positions, point2, p.tolerance_arrivée):
+            if dist_bateau_point(positions, point2, p.tolerance_arrivée): # Condiction d'arrêt de routage
                 print(points)
                 last_point = points.pop(0)
                 print(points)
@@ -511,6 +517,7 @@ def itere_jusqua_dans_enveloppe(points):
                         print("🎯 Destination atteinte. Fin du routage.")
                     
                 break
+        
         if p.enregistrement:
             lien_dossier = "route_ideale" 
             rv.enregistrement_route(chemin_lon, chemin_lat, p.pas_temporel, output_dir=lien_dossier)

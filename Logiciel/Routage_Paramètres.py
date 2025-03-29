@@ -7,13 +7,13 @@ from datetime import datetime, timedelta
 
 "TRAVERSEE ATLANTIQUE"
 # position_finale, position_initiale = ((-1.8390148914037843, 46.468986830218), (-15.44764920293199, 44.793006205066064)) 
-# bg = (37.751188312991886, -74.80351747265776)
+# bg = (30.751188312991886, -74.80351747265776)
 # hd = (61.24779029169383, -0.7117176270096285)
 
 "BRETAGNE"
-position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
-bg = (46, -7)
-hd = (49, -1.5)
+# position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
+# bg = (46, -7)
+# hd = (49, -1.5)
 
 "GOLF DE GASCOGNE"
 # position_initiale, position_finale = ((48.85725806451613, -3.9306451612903226), (47.307795698924735, -2.919354838709677))
@@ -26,9 +26,9 @@ hd = (49, -1.5)
 # hd = (43.585020563003646, 9.390756905813463)
 
 "BAIE DE QUIBERON"
-# position_initiale, position_finale = ((47.51947360133281, -3.02934453657029), (47.29641627857444, -3.3177356614143387))
-# bg = (47.19946468891098, -3.405626289938239)
-# hd = (47.64175257800393, -2.806871383119167)
+position_initiale, position_finale = ((47.51947360133281, -3.02934453657029), (47.29641627857444, -3.3177356614143387))
+bg = (47.19946468891098, -3.405626289938239)
+hd = (47.64175257800393, -2.806871383119167)
 
 "Atlantique centrale"
 # position_initiale, position_finale = ((12.75, -33.1), (24.33, -32.80))
@@ -40,7 +40,7 @@ loc_nav = [bg[1], hd[1], bg[0], hd[0]]
 
 points = [position_initiale, position_finale]
 
-pas_temporel = 0.25
+pas_temporel = 0.05
 pas_angle = 10
 
 
@@ -48,14 +48,15 @@ heure_initiale = 12
 date_initiale = "0319" # MMJJ
 
 tolerance = 0.0001
-rayon_elemination = 0.2
+rayon_elemination = 0.01
 
-skip = 5
-skip_vect_vent = 5
+skip = 1
+skip_vect_vent = 1
 
-tolerance_arrivée = 100
+tolerance_arrivée = 2
 
 land_contact = False
+courant = False
 
 enregistrement = False
 enregistrement_live = False
@@ -69,8 +70,8 @@ enveloppe = True
 drapeau = True
 
 # FICHIER METEO, TERRE
-vent = r"Données_vent\METEOCONSULT12Z_VENT_0319_Nord_Atlantique.grb"
-new = True
+vent = r"Données_vent\METEOCONSULT12Z_VENT_0326_Gascogne.grb"
+new = False
 nb_step = 0
 
 excel_wind = r'Logiciel\Données_vent\Vent.xlsx'

@@ -29,8 +29,12 @@ J'ai partagé une environnement conda avec toutes les bibliothèques nécessaire
 - Possibilités de déterminer la route idéal avec un aperçu en direct ou visualisation a la fin de la route
 - Grille de vent venant d'un grib meteo France ou carte des vents personnalisée via excel
 
-## Utilisation
-Me demander et pas évident d'installer cfgrib 
+### Décembre-Juin 2025
+- Multichemin
+- Amélioration rapidité routage
+- Comparaison avec Vendée GLobe 2024-2025
+![Test logiciel avec la trace du Vendée Globe - Prédiction](https://github.com/Tutur09/Logiciel_de_routage/raw/main/Exemples\Prédiction_route_CD.png)
+![Test logiciel avec la trace du Vendée Globe - Trace réelle](https://github.com/Tutur09/Logiciel_de_routage/raw/main/Exemples\Carte_arrivée_CD_011425.png)
 
 ## EXEMPLES
 ![Carte de vent défini par l'utilisateur](https://github.com/Tutur09/Logiciel_de_routage/raw/main/Exemple.png)
